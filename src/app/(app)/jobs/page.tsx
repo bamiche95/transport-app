@@ -53,11 +53,11 @@ export default function JobsPage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6">Operations: Jobs</h1>
+     
       <ReusableDataTable 
         data={jobs} 
         allAvailableColumns={columns} 
-        pageName="jobs_page" 
+        pageName="jobs" 
       />
     </div>
   );

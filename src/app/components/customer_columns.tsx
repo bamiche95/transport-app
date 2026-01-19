@@ -35,6 +35,7 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("customer_name", {
     header: "Customer Name",
+    meta: { editable: true, inputType: "text", apiField: "customer_name" },
     cell: (info) => (
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {info.getValue()}
@@ -43,10 +44,12 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("contact_name", {
     header: "Contact Person",
+    meta: { editable: true, inputType: "text", apiField: "contact_name" },
     cell: (info) => info.getValue() || "—",
   }),
   columnHelper.accessor("email", {
     header: "Email",
+    meta: { editable: true, inputType: "text", apiField: "email" },
     cell: (info) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Email sx={{ fontSize: 16, color: 'action.active' }} />
@@ -56,6 +59,7 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("phone_number", {
     header: "Phone",
+    meta: { editable: true, inputType: "text", apiField: "phone_number" },
     cell: (info) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Phone sx={{ fontSize: 16, color: 'action.active' }} />
@@ -65,10 +69,12 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("address", {
     header: "Street Address",
+    meta: { editable: true, inputType: "text", apiField: "address" },
     cell: (info) => info.getValue() || "—",
   }),
   columnHelper.accessor("city", {
     header: "City",
+    meta: { editable: true, inputType: "text", apiField: "city" },
     cell: (info) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <LocationOn sx={{ fontSize: 16, color: 'error.light' }} />
@@ -78,10 +84,12 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("town", {
     header: "Town",
+    meta: { editable: true, inputType: "text", apiField: "town" },
     cell: (info) => info.getValue() || "—",
   }),
   columnHelper.accessor("postcode", {
     header: "Postcode",
+    meta: { editable: true, inputType: "text", apiField: "postcode" },
     cell: (info) => (
       <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
         {info.getValue() || "—"}
@@ -90,6 +98,7 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("country", {
     header: "Country",
+    meta: { editable: true, inputType: "text", apiField: "country" },
     cell: (info) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Public sx={{ fontSize: 16, color: 'text.secondary' }} />
@@ -99,6 +108,7 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("opening_times", {
     header: "Opening Times",
+    meta: { editable: true, inputType: "text", apiField: "opening_times" },
     cell: (info) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <AccessTime sx={{ fontSize: 16, color: 'warning.main' }} />
@@ -108,6 +118,7 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("sic_code", {
     header: "SIC Code",
+    meta: { editable: true, inputType: "text", apiField: "sic_code" },
     cell: (info) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Business sx={{ fontSize: 16, color: 'text.disabled' }} />
@@ -117,6 +128,7 @@ export const customerColumns: ColumnDef<Customer, any>[] = [
   }),
   columnHelper.accessor("company_notes", {
     header: "Notes",
+    meta: { editable: true, inputType: "text", apiField: "company_notes" },
     cell: (info) => {
       const val = info.getValue();
       return val ? (

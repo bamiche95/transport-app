@@ -21,7 +21,7 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex flex-col min-h-screen"> {/* Ensure full height container */}
+    <div className="flex flex-col min-h-screen" suppressHydrationWarning> {/* Ensure full height container */}
       <Header user={user} />
 
       {/* 1. Removed max-w-screeen (typo). 

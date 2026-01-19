@@ -4,9 +4,9 @@ import { pool } from "@/lib/db";
 export async function GET() {
   try {
     const sql = "SELECT * FROM jobs ORDER BY job_datetime DESC";
-    const result = await pool.query(sql);
+    const [result] = await pool.query(sql);
     
-    // Even if result is [], NextResponse.json([]) is valid and won't break the UI
+    // Return empty array if no results
     return NextResponse.json(result || []);
   } catch (error) {
     console.error("Database Error:", error);

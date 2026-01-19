@@ -3,12 +3,14 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import ThemeWrapper from "./components/ThemeWrapper";
 import { getUserFromJWT } from "@/lib/auth";
 
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   display: "swap",
+  variable: "--font-poppins",
 });
 
 export const metadata: Metadata = {
@@ -21,9 +23,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={poppins.variable}>
       <body className="antialiased text-slate-900 bg-white">
-        {children}
+        <ThemeWrapper>
+          {children}
+        </ThemeWrapper>
       </body>
     </html>
   );

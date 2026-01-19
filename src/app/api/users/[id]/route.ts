@@ -13,7 +13,6 @@ export async function PATCH(
   const { id } = await params; 
   const userId = Number(id);
 
-  console.log("Resolved User ID:", userId);
 
   const currentUser = await getUserFromJWT();
 

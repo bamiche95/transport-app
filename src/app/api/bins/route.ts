@@ -20,7 +20,7 @@ LEFT jOIN bin_status bs ON b.bin_status_id = bs.bin_status_id
 ORDER BY b.created_at DESC;
     `;
     const result = await pool.query(sql);
-    console.log(result);
+
     return NextResponse.json(result);
   } catch (error) {
     console.error("Database Error:", error);
