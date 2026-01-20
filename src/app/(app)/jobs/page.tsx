@@ -58,6 +58,7 @@ export default function JobsPage() {
         data={jobs} 
         allAvailableColumns={columns} 
         pageName="jobs" 
+         detailPagePath="/jobs/[id]"
       />
     </div>
   );

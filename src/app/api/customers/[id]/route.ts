@@ -55,8 +55,8 @@ export async function PATCH(
     `,
       [...values, user.id, customerId]
     );
-// At the end of your PATCH try block:
-const [rows] = await pool.query(`
+    // At the end of your PATCH try block:
+    const [rows] = await pool.query(`
   SELECT 
       c.*, 
       CONCAT(u.first_name, '', last_name) AS assigned_to_name,
@@ -66,7 +66,7 @@ const [rows] = await pool.query(`
     LEFT JOIN company co ON c.company_id = co.company_id
     WHERE c.customer_id = ?
 `, [id]) as any[];
-return NextResponse.json(rows[0]);
+    return NextResponse.json(rows[0]);
 
   } catch (error: any) {
     console.error("Database error:", error);
@@ -82,7 +82,7 @@ export async function GET(
     // Await the params promise as per Next.js 15+ standards
     const { id } = await params;
 
-    const query = `
+    const queryCustomer = `
       SELECT 
         c.*, 
         comp.company_name,
@@ -93,13 +93,53 @@ export async function GET(
       WHERE c.customer_id = ?
     `;
 
-    const [rows]: any = await pool.query(query, [id]);
+    const queryJobs = `
+      SELECT * 
+      FROM jobs 
+      WHERE customer_id = ? 
+      ORDER BY created_at DESC
+    `;
+
+    // Bin Description, Bin Type, CUstomer Name, Company, Bin Number, Printed, Modified time and Condition.
+    const queryBins = `
+      SELECT 
+        b.bin_id,
+        b.bin_description,
+        bt.bin_name,
+        c.customer_name,
+        comp.company_name,
+        b.bin_number,
+        b.printed,
+        b.modified_at,
+        b.bin_condition
+      FROM bins b
+      LEFT JOIN bintype bt ON b.bin_type_id = bt.bin_type_id
+      LEFT JOIN customer c ON b.customer_id = c.customer_id
+      LEFT JOIN company comp ON b.company_id = comp.company_id
+      WHERE b.customer_id = ?
+    `;
+
+    const [customerResult, jobsResult, binsResult] = await Promise.all([
+      pool.query(queryCustomer, [id]),
+      pool.query(queryJobs, [id]),
+      pool.query(queryBins, [id]),
+    ]);
+
+    const rows = customerResult[0] as any[];
+    const jobs = jobsResult[0] as any[];
+    const bins = binsResult[0] as any[];
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    return NextResponse.json(rows[0]);
+    const customerData = {
+      ...rows[0],
+      jobs: jobs || [],
+      bins: bins || [],
+    };
+
+    return NextResponse.json(customerData);
   } catch (error) {
     console.error("Database error:", error);
     return NextResponse.json(

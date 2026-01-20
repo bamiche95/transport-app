@@ -19,7 +19,7 @@ import {
   Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Button, Typography, IconButton, Divider,
   Stack, Checkbox, Snackbar, Alert, CircularProgress,
-  capitalize, MenuItem
+  capitalize
 } from "@mui/material";
 import {
   FilterList, Search, ArrowUpward, ArrowDownward, Sort,
@@ -29,6 +29,8 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 import TableLayoutDrawer from "./LayoutView";
 import { CellEditPayload } from "../types/CellEditPayload";
 import { EditableColumnMeta } from "../types/EditableColumnMeta";
+import EditableCell from "./EditableCell";
+
 interface ReusableTableProps {
   data: any[];
   allAvailableColumns: ColumnDef<any, any>[];
@@ -41,6 +43,7 @@ interface ReusableTableProps {
 
 export default function ReusableDataTable({ data, allAvailableColumns, pageName, onCellEdit, onDeleteRows, detailPagePath, idField = "id" }: ReusableTableProps) {
   const router = useRouter();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -49,8 +52,6 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
   const [rowSelection, setRowSelection] = useState({}); // New Selection State
 
   const [editingCell, setEditingCell] = useState<{ rowId: string, colId: string } | null>(null);
-  const [tempEditValue, setTempEditValue] = useState("");
-  const [editingCellLoading, setEditingCellLoading] = useState(false);
   const [errorSnackbar, setErrorSnackbar] = useState<{ open: boolean; message: string }>({ open: false, message: "" });
 
   // UI State for Views
@@ -64,9 +65,6 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
 
   // savedFilters here
   const { setActiveTable, setSavedFilters, savedFilters } = useFilterStore();
-
-
-
 
   // Add Checkbox Column to the beginning of columns
   const columnsWithSelection = useMemo<ColumnDef<any, any>[]>(() => [
@@ -95,8 +93,6 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
   const table = useReactTable({
     data,
     columns: columnsWithSelection,
-
-
     state: { columnVisibility, columnFilters, sorting, rowSelection, columnOrder },
     initialState: {
       pagination: {
@@ -113,10 +109,10 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onColumnOrderChange: setColumnOrder, // Add this handler
-getRowId: (row) => {
-  const id = row.id ?? row.bin_id ?? row.job_id ?? row.customer_id ?? row.bin_type_id;
-  return String(id);
-}
+    getRowId: (row) => {
+      const id = row.id ?? row.bin_id ?? row.job_id ?? row.customer_id ?? row.bin_type_id;
+      return String(id);
+    }
   });
 
   const selectedRows = table.getSelectedRowModel().rows;
@@ -143,7 +139,7 @@ getRowId: (row) => {
   };
 
 
-  const handleSaveEdit = async (row: any, cell: any) => {
+  const handleSaveEdit = async (row: any, cell: any, newValue: any) => {
     const columnDef = cell.column.columnDef;
     const meta = columnDef.meta as EditableColumnMeta | undefined;
 
@@ -152,12 +148,11 @@ getRowId: (row) => {
       return;
     }
 
-    setEditingCellLoading(true);
     try {
       await onCellEdit?.({
         rowId: row.id,
         columnId: cell.column.id,
-        value: tempEditValue,
+        value: newValue,
         row: row.original,
         columnMeta: meta,
       });
@@ -165,17 +160,16 @@ getRowId: (row) => {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save changes";
       setErrorSnackbar({ open: true, message });
-    } finally {
-      setEditingCellLoading(false);
+      throw error; // Re-throw so EditableCell knows it failed
     }
   };
 
 
-const checkIsDateColumn = (columnId: string) => {
-  const id = columnId.toLowerCase();
-  // Matches "date", "created_at", "updated_at", but NOT "status"
-  return id === 'date' || id.endsWith('_at') || id.includes('date');
-};
+  const checkIsDateColumn = (columnId: string) => {
+    const id = columnId.toLowerCase();
+    // Matches "date", "created_at", "updated_at", but NOT "status"
+    return id === 'date' || id.endsWith('_at') || id.includes('date');
+  };
 
 
 
@@ -318,11 +312,6 @@ const checkIsDateColumn = (columnId: string) => {
   };
 
 
-
-  /**
-     * CONSOLIDATED UPDATE FUNCTION
-     * This updates both the NAME and the LAYOUT (config) at the same time.
-     */
   const handleUpdateView = async (filterId: number) => {
     const currentConfig = {
       filters: table.getState().columnFilters,
@@ -384,10 +373,6 @@ const checkIsDateColumn = (columnId: string) => {
   };
 
 
-
-
-
-
   return (
     <Box sx={{
       display: "flex",
@@ -420,19 +405,19 @@ const checkIsDateColumn = (columnId: string) => {
             Bulk Edit
           </Button>
         </Stack>
-       
- <Stack  direction="row" spacing={2} alignItems="center">
 
-   <Button startIcon={<AddCircleIcon />} variant="contained" onClick={()=>handleAdd()}>
-           Add {pageName}
-        </Button>
+        <Stack direction="row" spacing={2} alignItems="center">
 
- <Button variant="outlined" startIcon={<FilterList />} onClick={() => setSidebarOpen(true)}>
-          Layout & Views
-        </Button>
- </Stack>
-       
-        
+          <Button startIcon={<AddCircleIcon />} variant="contained" onClick={() => handleAdd()}>
+            Add {pageName}
+          </Button>
+
+          <Button variant="outlined" startIcon={<FilterList />} onClick={() => setSidebarOpen(true)}>
+            Layout & Views
+          </Button>
+        </Stack>
+
+
       </Box>
 
       <Paper elevation={3} sx={{ overflow: 'hidden' }}>
@@ -468,13 +453,13 @@ const checkIsDateColumn = (columnId: string) => {
                   {/* Search Row */}
                   <TableRow>
                     {headerGroup.headers.map((header, index) => {
-                     // Get the meta from the column definition
-  const columnMeta = header.column.columnDef.meta as EditableColumnMeta | undefined;
-  
-  // Use the explicit inputType if it exists, otherwise fallback to string check
-  const isDate = columnMeta?.inputType === "date" || checkIsDateColumn(header.id);
-  
-  const isSelect = header.id === "select";
+                      // Get the meta from the column definition
+                      const columnMeta = header.column.columnDef.meta as EditableColumnMeta | undefined;
+
+                      // Use the explicit inputType if it exists, otherwise fallback to string check
+                      const isDate = columnMeta?.inputType === "date" || checkIsDateColumn(header.id);
+
+                      const isSelect = header.id === "select";
                       return (
                         <TableCell key={header.id} sx={{ bgcolor: "#f8fafc", py: 1, top: 40, zIndex: 2 }}>
                           <Stack direction="row" spacing={1} alignItems="center">
@@ -513,9 +498,9 @@ const checkIsDateColumn = (columnId: string) => {
 
             <TableBody>
               {table.getRowModel().rows.map(row => (
-                <TableRow 
-                  key={row.id} 
-                  selected={row.getIsSelected()} 
+                <TableRow
+                  key={row.id}
+                  selected={row.getIsSelected()}
                   hover
                   onClick={() => {
                     if (detailPagePath && !editingCell) {
@@ -532,157 +517,44 @@ const checkIsDateColumn = (columnId: string) => {
                     transition: "background-color 0.2s",
                   }}
                 >
-                 {row.getVisibleCells().map(cell => {
-  const columnMeta =
-    cell.column.columnDef.meta as EditableColumnMeta | undefined;
+                  {row.getVisibleCells().map(cell => {
+                    const isEditing = editingCell?.rowId === row.id && editingCell?.colId === cell.column.id;
 
-  const isEditable = columnMeta?.editable !== false;
-  const inputType = columnMeta?.inputType ?? "text";
-  const isDateCol = inputType === "date";
-  const isSelectCol = cell.column.id === "select";
+                    return (
+                      <TableCell
+                        key={`${row.id}-${cell.column.id}`}
+                        sx={{
+                          position: "relative",
+                          minWidth: cell.column.id === 'select' ? 50 : 120,
+                          maxWidth: 260,
+                          overflow: isEditing ? "visible" : "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          zIndex: isEditing ? 10 : "auto",
+                          "&:hover .edit-btn": { opacity: 1 },
+                          fontSize: 12,
 
-  const isEditing =
-    editingCell?.rowId === row.id &&
-    editingCell?.colId === cell.column.id;
-
-  return (
-    <TableCell
-     key={`${row.id}-${cell.column.id}`}
-      sx={{
-        position: "relative",
-        minWidth: isSelectCol ? 50 : 120,
-        maxWidth: 260,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        "&:hover .edit-btn": { opacity: 1 },
-        fontSize: 12
-      }}
-    >
-      {isEditing ? (
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          {editingCellLoading ? (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
-              <CircularProgress size={16} />
-              <Typography variant="caption">Saving...</Typography>
-            </Box>
-          ) : inputType === "select" ? (
-<TextField
-    select
-    size="small"
-    // MUI uses value on the TextField to determine which MenuItem is "selected"
-    value={tempEditValue ?? ""} 
-    onChange={(e) => setTempEditValue(e.target.value)}
-    fullWidth
-    variant="standard"
-    disabled={editingCellLoading}
-  >
-    {(Array.isArray(columnMeta?.options) ? columnMeta.options : []).map((opt, index) => (
-      <MenuItem key={opt.id || opt.value || index} value={opt.value}>
-        {opt.label}
-      </MenuItem>
-    ))}
-  </TextField>
-
-
-          ) : (
-            <TextField
-              autoFocus
-              size="small"
-              type={inputType}
-              variant="standard"
-              value={tempEditValue}
-              onChange={(e) => setTempEditValue(e.target.value)}
-              disabled={editingCellLoading}
-            />
-          )}
-
-          {!editingCellLoading && (
-            <>
-              <IconButton
-                size="small"
-                color="success"
-                onClick={() => handleSaveEdit(row, cell)}
-              >
-                <Check fontSize="inherit" />
-              </IconButton>
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => setEditingCell(null)}
-              >
-                <Close fontSize="inherit" />
-              </IconButton>
-            </>
-          )}
-        </Stack>
-      ) : (
-        <Box sx={{ 
-          display: "flex", 
-          justifyContent: "space-between",
-          position: "relative",
-          alignItems: "flex-start"
-        }}>
-          {(() => {
-  const content = flexRender(cell.column.columnDef.cell, cell.getContext());
-  return React.isValidElement(content) ? content : <Typography variant="body2">{content}</Typography>;
-})()}
-
-
-          {isEditable && !isSelectCol && (
-            <IconButton
-              className="edit-btn"
-              size="small"
-              sx={{ 
-                opacity: 0,
-                position: "absolute",
-                right: 0,
-                top: 0,
-                minWidth: "auto",
-                padding: "4px",
-                color: '#ffffff',
-                backgroundColor: '#d41111',
-                transition: 'all 0.2s ease-in-out',
-                '&:hover': {
-                  backgroundColor: '#ff1a1a',
-                  opacity: 1,
-                  transform: 'scale(1.1)'
-                }
-              }}
-              onClick={() => {
-                setEditingCell({ rowId: row.id, colId: cell.column.id });
-                // For select fields, find the matching option value; otherwise use string value
-                const cellValue = cell.getValue();
-                
-                let initialValue = "";
-                
-                if (inputType === "select" && Array.isArray(columnMeta?.options)) {
-                  // For selects, find the option that matches the current cell value
-                  const matchingOption = columnMeta.options.find(opt => opt.value === cellValue);
-                  console.log("DEBUG Matching option:", matchingOption);
-                  
-                  if (matchingOption?.value != null) {
-                    initialValue = String(matchingOption.value);
-                  } else if (columnMeta.options.length > 0 && columnMeta.options[0]?.value != null) {
-                    initialValue = String(columnMeta.options[0].value);
-                  }
-                } else {
-                  // For text/date inputs, use the cell value directly
-                  initialValue = cellValue != null ? String(cellValue) : "";
-                }
-                
-                console.log("DEBUG Final initialValue:", initialValue);
-                setTempEditValue(initialValue);
-              }}
-            >
-              <EditIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-          )}
-        </Box>
-      )}
-    </TableCell>
-  );
-})}
+                        }}
+                      >
+                        {cell.column.id === 'select' ? (
+                          flexRender(cell.column.columnDef.cell, cell.getContext())
+                        ) : (
+                          <EditableCell
+                            initialValue={cell.getValue()}
+                            renderedContent={flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            row={row}
+                            column={cell.column}
+                            isEditing={isEditing}
+                            onEditStart={() =>
+                              setEditingCell({ rowId: row.id, colId: cell.column.id })
+                            }
+                            onSave={(value: any) => handleSaveEdit(row, cell, value)}
+                            onCancel={() => setEditingCell(null)}
+                          />
+                        )}
+                      </TableCell>
+                    );
+                  })}
 
                 </TableRow>
               ))}

@@ -2,11 +2,23 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getUserFromJWT } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const sql = "SELECT * FROM customer ORDER BY customer_name ASC";
-    const result = await pool.query(sql);
-    return NextResponse.json(result);
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
+
+    let sql = "SELECT * FROM customer";
+    const params: any[] = [];
+
+    if (search) {
+      sql += " WHERE customer_name LIKE ?";
+      params.push(`%${search}%`);
+    }
+
+    sql += " ORDER BY customer_name ASC";
+
+    const [rows]: any = await pool.query(sql, params);
+    return NextResponse.json(rows);
   } catch (error) {
     console.error("Database Error:", error);
     return NextResponse.json({ error: "Failed to fetch customers" }, { status: 500 });

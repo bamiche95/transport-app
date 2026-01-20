@@ -9,7 +9,8 @@ type Bin = {
   bin_id: number;
   bin_number: string;
   bin_description: string;
-  bin_status: string; // Dynamic status from SQL Join
+  bin_status?: string; // Legacy/ID potentially
+  bin_status_label?: string; // From JOIN
   bin_condition: string;
   bin_name: string;
   bin_type_id?: number; // FK to bintype table
@@ -21,6 +22,7 @@ type Bin = {
   created_at: string;
   modified_at: string;
   bin_status_id: number;
+  customer_id?: number;
 };
 
 const columnHelper = createColumnHelper<Bin>();
@@ -38,70 +40,71 @@ const getStatusColor = (status: string) => {
 export default function BinsPage() {
   const [bins, setBins] = useState<Bin[]>([]);
   const [loading, setLoading] = useState(true);
-const [statusOptions, setStatusOptions] = useState<{ bin_status_id: number; label: string }[]>([]);
-const normalizedStatusOptions = statusOptions.map(opt => ({
-  id: opt.bin_status_id,
-  // Ensure these match your database column names!
-  label: opt.label , 
-  value: opt.bin_status_id ,
-}));
-const [companyOptions, setCompanyOptions] = useState<{company_id: number; company_name:string}[]>([])
-const normalizedCompanyOptions = companyOptions.map(opt => ({
-  id: opt.company_id,
-  label: opt.company_name,
-  value: opt.company_id,
-}));
-const [binTypeOptions, setBinTypeOptions] = useState<{bin_type_id?: number; id?: number; bin_name: string}[]>([]);
-const normalizedBinTypeOptions = binTypeOptions.map(opt => {
-  const typeId = opt.bin_type_id ?? opt.id; // Use bin_type_id if available, otherwise use id
-  return {
-    id: typeId,
-    label: opt.bin_name,
-    value: typeId,
-  };
-});
-useEffect(()=>{
-  fetch("/api/company")
-    .then((res) => res.json())
-    .then((data) => {
-      setCompanyOptions(data);
-    })
-    .catch((err) => console.error("Failed to load company options", err));
-  
+  const [statusOptions, setStatusOptions] = useState<{ bin_status_id: number; label: string }[]>([]);
+  const normalizedStatusOptions = statusOptions.map(opt => ({
+    id: opt.bin_status_id,
+    // Ensure these match your database column names!
+    label: opt.label,
+    value: opt.bin_status_id,
+  }));
+ 
+  const [companyOptions, setCompanyOptions] = useState<{ company_id: number; company_name: string }[]>([])
+  const normalizedCompanyOptions = companyOptions.map(opt => ({
+    id: opt.company_id,
+    label: opt.company_name,
+    value: opt.company_id,
+  }));
+  const [binTypeOptions, setBinTypeOptions] = useState<{ bin_type_id?: number; id?: number; bin_name: string }[]>([]);
+  const normalizedBinTypeOptions = binTypeOptions.map(opt => {
+    const typeId = opt.bin_type_id ?? opt.id; // Use bin_type_id if available, otherwise use id
+    return {
+      id: typeId,
+      label: opt.bin_name,
+      value: typeId,
+    };
+  });
+  useEffect(() => {
+    fetch("/api/company")
+      .then((res) => res.json())
+      .then((data) => {
+        setCompanyOptions(data);
+      })
+      .catch((err) => console.error("Failed to load company options", err));
+
   }, []);
 
 
-useEffect(() => {
-  fetch("/api/bin_status")
-    .then((res) => res.json())
-    .then((data) => {
-      setStatusOptions(data);
-    })
-    .catch((err) => console.error("Failed to load bin statuses", err));
-}, []);
+  useEffect(() => {
+    fetch("/api/bin_status")
+      .then((res) => res.json())
+      .then((data) => {
+        setStatusOptions(data);
+      })
+      .catch((err) => console.error("Failed to load bin statuses", err));
+  }, []);
 
-useEffect(() => {
-  fetch("/api/bintype")
-    .then((res) => res.json())
-    .then((data) => {
-      setBinTypeOptions(data);
-    })
-    .catch((err) => console.error("Failed to load bin types", err));
-}, []);
+  useEffect(() => {
+    fetch("/api/bintype")
+      .then((res) => res.json())
+      .then((data) => {
+        setBinTypeOptions(data);
+      })
+      .catch((err) => console.error("Failed to load bin types", err));
+  }, []);
 
 
-  const columns= React.useMemo(() =>[
+  const columns = React.useMemo(() => [
     columnHelper.accessor("bin_number", {
       header: "Bin Number",
-          meta: { editable: true, inputType: "text", apiField: "bin_number" }, 
+      meta: { editable: true, inputType: "text", apiField: "bin_number" },
 
       cell: (info) => info.getValue() || "—",
     }),
     columnHelper.accessor("bin_type_id", {
       header: "Bin Type",
-      meta: { 
-        editable: true, 
-        inputType: "select", 
+      meta: {
+        editable: true,
+        inputType: "select",
         apiField: "bin_type_id",
         options: normalizedBinTypeOptions
       },
@@ -111,111 +114,121 @@ useEffect(() => {
         return rowData.bin_name || "—";
       },
     }),
- columnHelper.accessor("bin_description", {
-  header: "Bin Description",
-  meta: { editable: true, inputType: "text", apiField: "bin_description" },
-  size: 100,
-  cell: (info) => {
-    const value = info.getValue();
-    if (React.isValidElement(value)) return value;
-    return value || "—";
-  }
-}),
+    columnHelper.accessor("bin_description", {
+      header: "Bin Description",
+      meta: { editable: true, inputType: "text", apiField: "bin_description" },
+      size: 100,
+      cell: (info) => {
+        const value = info.getValue();
+        if (React.isValidElement(value)) return value;
+        return value || "—";
+      }
+    }),
 
-columnHelper.accessor("bin_status_id", {
-  header: "Status",
-  meta: {
-    editable: true,
-    inputType: "select",
-    apiField: "bin_status_id",
-    options: normalizedStatusOptions,
-  },
-  cell: (info) => {
-    const statusId = info.getValue();
-    const rowData = info.row.original;
+    columnHelper.accessor("bin_status_id", {
+      header: "Status",
+      meta: {
+        editable: true,
+        inputType: "select",
+        apiField: "bin_status_id",
+        options: normalizedStatusOptions,
+      },
+      cell: (info) => {
+        const statusId = info.getValue();
+        const rowData = info.row.original;
 
-    // Look for the label in the mapped options
-    const foundOption = normalizedStatusOptions.find(
-      (o) => Number(o.value) === Number(statusId)
-    );
-    // Fallback to the bin_status string that came directly from the /api/bins join
-    const statusLabel = foundOption?.label || rowData.bin_status || "Unknown";
+        // Look for the label in the mapped options
+        const foundOption = normalizedStatusOptions.find(
+          (o) => Number(o.value) === Number(statusId)
+        );
+        
+        // Fallback to the bin_status string that came directly from the /api/bins join
+        const statusLabel = foundOption?.label || rowData.bin_status_label || rowData.bin_status || "Unknown";
 
-    return (
-      <Chip
-        label={statusLabel}
-        color={getStatusColor(statusLabel)}
-        size="small"
-        variant="outlined"
-      />
-    );
-  },
-}),
+        return (
+          <Chip
+            label={statusLabel}
+            color={getStatusColor(statusLabel)}
+            size="small"
+            variant="outlined"
+          />
+        );
+      },
+    }),
 
-columnHelper.accessor("customer_name", {
-  header: "Customer",
-  meta: { editable: true, inputType: "text" },
-  cell: (info) => {
-    const value = info.getValue();
-    if (React.isValidElement(value)) return value;
-    return value || '-';
-  }
-}),
+    columnHelper.accessor("customer_name", {
+      header: "Customer",
+      meta: {
+        editable: true,
+        inputType: "autocomplete",
+        apiField: "customer_id",
+        searchConfig: {
+          searchUrl: "/api/customers",
+          labelKey: "customer_name",
+          valueKey: "customer_id"
+        }
+      },
+      cell: (info) => {
+        const value = info.getValue();
+        if (React.isValidElement(value)) return value;
+        return value || '-';
+      }
+    }),
 
-columnHelper.accessor("company_id", {
-  header: "Company",
-  meta: { 
-    editable: true, 
-    inputType: "select",
-    apiField: "company_id", // The field sent to your PATCH API
-    options: normalizedCompanyOptions 
-  },
-  cell: (info) => {
-    const companyId = info.getValue();
-    const rowData = info.row.original;
+    columnHelper.accessor("company_id", {
+      header: "Company",
+      meta: {
+        editable: true,
+        inputType: "select",
+        apiField: "company_id", // The field sent to your PATCH API
+        options: normalizedCompanyOptions
+      },
+      cell: (info) => {
+        const companyId = info.getValue();
+        const rowData = info.row.original;
 
-    // Look for the label in the fetched company list
-    const found = normalizedCompanyOptions.find(
-      (o) => Number(o.value) === Number(companyId)
-    );
+        // Look for the label in the fetched company list
+        const found = normalizedCompanyOptions.find(
+          (o) => Number(o.value) === Number(companyId)
+        );
 
-    // Use the found label, or fallback to the company_name already in the bin data
-    return found?.label || rowData.company_name || "—";
-  },
-}),
+        // Use the found label, or fallback to the company_name already in the bin data
+        return found?.label || rowData.company_name || "—";
+      },
+    }),
     columnHelper.accessor("bin_condition", {
       header: "Condition",
-      meta: { editable: true, inputType: "text", apiField:'bin_condition'  },
+      meta: { editable: true, inputType: "text", apiField: 'bin_condition' },
       cell: (info) => info.getValue() || "N/A",
     }),
     columnHelper.accessor("comment", {
       header: "Comment",
-      meta: { editable: true, inputType: "text",apiField:'comment'  },
+      meta: { editable: true, inputType: "text", apiField: 'comment' },
 
       cell: (info) => info.getValue() || "—",
     }),
-columnHelper.accessor("printed", {
-  header: "Label Printed",
-  meta: { 
-    editable: true, 
-    inputType: "select",
-    apiField: "printed", // Fixed typo here
-    options: [
-      { id: "yes", label: "Yes", value: 1 },
-      { id: "no", label: "No", value: 0 }
-    ]
-  },
-  cell: (info) => (Number(info.getValue()) === 1 ? "✅ Yes" : "❌ No"),
-}),
+    columnHelper.accessor("printed", {
+      header: "Label Printed",
+      meta: {
+        editable: true,
+        inputType: "select",
+        apiField: "printed", // Fixed typo here
+        options: [
+          { id: "yes", label: "Yes", value: 1 },
+          { id: "no", label: "No", value: 0 }
+        ]
+      },
+      cell: (info) => (Number(info.getValue()) === 1 ? "✅ Yes" : "❌ No"),
+    }),
     columnHelper.accessor("created_at", {
       header: "Created date",
-      meta: { editable: false,   },
+      meta: { editable: false, },
 
       cell: (info) => new Date(info.getValue()).toLocaleDateString(),
     }),
-      columnHelper.accessor("modified_at", {
+    columnHelper.accessor("modified_at", {
       header: "Modified date",
-      meta: { editable: false,  },
+      meta: { editable: false, },
 
       cell: (info) => new Date(info.getValue()).toLocaleString(),
     }),
@@ -236,66 +249,66 @@ columnHelper.accessor("printed", {
   }, []);
 
 
-const handleBinsEdit = async ({ rowId, value, columnMeta }: CellEditPayload<Bin>) => {
-  if (!columnMeta?.apiField) {
-    throw new Error("Column not configured for editing");
-  }
-
-  console.log("DEBUG: Raw value received:", value, "Type:", typeof value);
-
-  // Convert numeric fields to proper types
-  const numericFields = ["bin_type_id", "bin_status_id", "company_id", "printed"];
-  let finalValue: any = value;
-  
-  if (numericFields.includes(columnMeta.apiField)) {
-    finalValue = Number(value);
-    if (isNaN(finalValue)) {
-      console.error("ERROR: Failed to convert value to number:", value);
-      throw new Error(`Invalid value for ${columnMeta.apiField}: ${value}`);
+  const handleBinsEdit = async ({ rowId, value, columnMeta }: CellEditPayload<Bin>) => {
+    if (!columnMeta?.apiField) {
+      throw new Error("Column not configured for editing");
     }
-  }
 
-  console.log("DEBUG: Final value:", finalValue, "Type:", typeof finalValue, "For field:", columnMeta.apiField);
+    console.log("DEBUG: Raw value received:", value, "Type:", typeof value);
 
-  // Optimistic UI update FIRST
-  setBins((prev) =>
-    prev.map((row) => {
-      if (row.bin_id === rowId || row.bin_id === Number(rowId)) {
-        const updatedRow = { ...row, [columnMeta.apiField!]: finalValue };
-        
-        // If updating bin_type_id, also update bin_name from the binTypeOptions lookup
-        if (columnMeta.apiField === "bin_type_id") {
-          const foundType = binTypeOptions.find(opt => (opt.bin_type_id ?? opt.id) === finalValue);
-          if (foundType) {
-            updatedRow.bin_name = foundType.bin_name;
-          }
-        }
-        
-        return updatedRow;
+    // Convert numeric fields to proper types
+    const numericFields = ["bin_type_id", "bin_status_id", "company_id", "printed", "customer_id"];
+    let finalValue: any = value;
+
+    if (numericFields.includes(columnMeta.apiField)) {
+      finalValue = Number(value);
+      if (isNaN(finalValue)) {
+        console.error("ERROR: Failed to convert value to number:", value);
+        throw new Error(`Invalid value for ${columnMeta.apiField}: ${value}`);
       }
-      return row;
-    })
-  );
-
-  // Then sync with API
-  try {
-    const payload = { [columnMeta.apiField]: finalValue };
-    console.log("Sending payload:", JSON.stringify(payload), "to /api/bins/", rowId);
-    const res = await fetch(`/api/bins/${rowId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.message || "Failed to update bin");
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update bin";
-    throw new Error(message);
-  }
-};
+
+    console.log("DEBUG: Final value:", finalValue, "Type:", typeof finalValue, "For field:", columnMeta.apiField);
+
+    // Optimistic UI update FIRST
+    setBins((prev) =>
+      prev.map((row) => {
+        if (row.bin_id === rowId || row.bin_id === Number(rowId)) {
+          const updatedRow = { ...row, [columnMeta.apiField!]: finalValue };
+
+          // If updating bin_type_id, also update bin_name from the binTypeOptions lookup
+          if (columnMeta.apiField === "bin_type_id") {
+            const foundType = binTypeOptions.find(opt => (opt.bin_type_id ?? opt.id) === finalValue);
+            if (foundType) {
+              updatedRow.bin_name = foundType.bin_name;
+            }
+          }
+
+          return updatedRow;
+        }
+        return row;
+      })
+    );
+
+    // Then sync with API
+    try {
+      const payload = { [columnMeta.apiField]: finalValue };
+      console.log("Sending payload:", JSON.stringify(payload), "to /api/bins/", rowId);
+      const res = await fetch(`/api/bins/${rowId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update bin");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update bin";
+      throw new Error(message);
+    }
+  };
 
 
 
@@ -303,14 +316,15 @@ const handleBinsEdit = async ({ rowId, value, columnMeta }: CellEditPayload<Bin>
 
   return (
     <div className="p-8">
-     
-      <ReusableDataTable 
+ 
+      <ReusableDataTable
 
-        data={bins} 
-        allAvailableColumns={columns} 
-        pageName="bins" 
-          onCellEdit={handleBinsEdit}
-
+        data={bins}
+        allAvailableColumns={columns}
+        pageName="bins"
+        onCellEdit={handleBinsEdit}
+ detailPagePath="/bins/[id]"
+  idField="bin_id"
       />
     </div>
   );
