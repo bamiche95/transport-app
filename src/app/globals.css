@@ -21,3 +21,32 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  @page {
+    size: 4in 4in;
+    margin: 0; /* Important for thermal printers */
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #barcode-section, #barcode-section * {
+    visibility: visible;
+  }
+
+  #barcode-section {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4in;
+    height: 4in;
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+  }
+}

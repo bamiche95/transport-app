@@ -11,6 +11,40 @@ type Job = {
   priority: string;
   address: string;
   job_datetime: string;
+  bin_type_id: number;
+  company_id: number;
+  qty: number;
+
+  company_notes: string;
+  job_type_id: number;
+
+  jobs_notes: string;
+  opening_times: string;
+  office_notes: string;
+  booking_portal_id: number;
+  adr: number;
+  lug_lock: number;
+
+  phone_number: number;
+  contact_name: string;
+  postcode: string;
+  city: string;
+  town: string;
+  country: string;
+  sic_code: number;
+  created_by: string;
+  assigned_to: string;
+  modified_by: string;
+  created_at: Date;
+  modified_at: Date;
+  waste_type_id: number;
+  job_date: Date;
+  assigned_to_label: string;
+  customer_name: string;
+  company_name: string;
+  job_type_name: string;
+  waste_type_name: string;
+  bin_name: string;
 };
 
 const columnHelper = createColumnHelper<Job>();
@@ -35,7 +69,7 @@ export default function JobsPage() {
 }),
     columnHelper.accessor("priority", { header: "Priority" }),
     columnHelper.accessor("address", { header: "Address" }),
-    columnHelper.accessor("job_datetime", { 
+    columnHelper.accessor("job_date", { 
       header: "Schedule",
       cell: (info) => info.getValue() ? new Date(info.getValue()).toLocaleString() : "N/A"
     }),

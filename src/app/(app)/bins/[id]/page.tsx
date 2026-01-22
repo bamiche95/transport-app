@@ -17,7 +17,7 @@ import {
     Tabs,
     Tab,
     MenuItem,
-
+    Autocomplete,
     Chip
 } from "@mui/material";
 import { ColumnDef, createColumnHelper } from "@tanstack/react-table";
@@ -27,6 +27,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import { CellEditPayload } from "@/app/types/CellEditPayload";
 import Grid from '@mui/material/Grid';
+import Barcode from 'react-barcode';
+import PrintIcon from "@mui/icons-material/Print";
+
 
 interface BinDetail {
     bin_id: number;
@@ -46,6 +49,8 @@ interface BinDetail {
     created_at: string;
     modified_at: string;
     jobs?: any[];
+    assigned_to: number | null;
+    assigned_to_label?: string;
 }
 
 const columnHelper = createColumnHelper<any>();
@@ -62,41 +67,46 @@ export default function BinDetailPage() {
     const [editLoading, setEditLoading] = useState(false);
     const [editData, setEditData] = useState<Partial<BinDetail>>({});
     const [tabValue, setTabValue] = useState(0);
-const [startDate, setStartDate] = useState('');
-const [endDate, setEndDate] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     // Options for Dropdowns
     const [statusOptions, setStatusOptions] = useState<{ bin_status_id: number; label: string }[]>([]);
-    const [binTypeOptions, setBinTypeOptions] = useState<{ bin_type_id: number; bin_name: string; id: number }[]>([]);
-    const [companyOptions, setCompanyOptions] = useState<{ company_id: number; company_name: string }[]>([]);
+    const [binTypeOptions, setBinTypeOptions] = useState<{ bin_type_id: number; bin_name: string; label: string; id: number }[]>([]);
+    const [companyOptions, setCompanyOptions] = useState<{ company_id: number; company_name: string; label: string; id: number }[]>([]);
+    console.log('companyOptions', companyOptions)
     // We might want full customer list if editing customer, but it can be huge. 
     // For now, let's stick to displaying the name, or fetch strictly if needed.
     // Using a simple fetch for now if the list isn't massive.
     const [customerOptions, setCustomerOptions] = useState<{ customer_id: number; customer_name: string }[]>([]);
 
-const [activities, setActivities] = useState<any[]>([]);
-const [activityLoading, setActivityLoading] = useState(false);
+    const [activities, setActivities] = useState<any[]>([]);
+    const [activityLoading, setActivityLoading] = useState(false);
+    const [userOptions, setUserOptions] = useState<{ id: number; label: string }[]>([]);
+    const [isSearchingCust, setIsSearchingCust] = useState(false);
+    const [isSearchingUser, setIsSearchingUser] = useState(false);
 
-const fetchActivities = async () => {
-    setActivityLoading(true);
-    try {
-        const res = await fetch(`/api/bins/${id}/activity`);
-        if (res.ok) {
-            const data = await res.json();
-            setActivities(data);
+
+    const fetchActivities = async () => {
+        setActivityLoading(true);
+        try {
+            const res = await fetch(`/api/bins/${id}/activity`);
+            if (res.ok) {
+                const data = await res.json();
+                setActivities(data);
+            }
+        } catch (err) {
+            console.error("Failed to load activity", err);
+        } finally {
+            setActivityLoading(false);
         }
-    } catch (err) {
-        console.error("Failed to load activity", err);
-    } finally {
-        setActivityLoading(false);
-    }
-};
+    };
 
-// Fetch activities when switching to the Updates tab (Tab 1)
-useEffect(() => {
-    if (tabValue === 1 && id) {
-        fetchActivities();
-    }
-}, [tabValue, id]);
+    // Fetch activities when switching to the Updates tab (Tab 1)
+    useEffect(() => {
+        if (tabValue === 1 && id) {
+            fetchActivities();
+        }
+    }, [tabValue, id]);
 
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -137,7 +147,7 @@ useEffect(() => {
                 const res = await fetch(`/api/bins/${id}`);
                 if (!res.ok) throw new Error("Failed to fetch bin details");
                 const data = await res.json();
-                
+
                 setBin(data);
                 setEditData(data); // Initialize edit form
             } catch (err) {
@@ -160,6 +170,52 @@ useEffect(() => {
     const handleInputChange = (field: keyof BinDetail, value: any) => {
         setEditData((prev) => ({ ...prev, [field]: value }));
     };
+
+
+    const handleSearch = async (field: 'customer' | 'user', query: string) => {
+        if (query.length < 3) return; // Only search after 3 characters
+
+        field === 'customer' ? setIsSearchingCust(true) : setIsSearchingUser(true);
+
+        try {
+            const res = await fetch(`/api/bins/form-data?q=${encodeURIComponent(query)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (field === 'customer') {
+                    // Mapping to match your existing state structure
+                    setCustomerOptions(data.customers.map((c: any) => ({
+                        customer_id: c.id,
+                        customer_name: c.label
+                    })));
+                } else {
+                    setUserOptions(data.users);
+                }
+            }
+        } catch (err) {
+            console.error("Search error:", err);
+        } finally {
+            field === 'customer' ? setIsSearchingCust(false) : setIsSearchingUser(false);
+        }
+    };
+
+    useEffect(() => {
+        const fetchOptions = async () => {
+            try {
+                const res = await fetch("/api/bins/form-data");
+                if (res.ok) {
+                    const data = await res.json();
+                    setStatusOptions(data.statuses);
+                    setBinTypeOptions(data.types);
+                    setCompanyOptions(data.companies);
+                    setCustomerOptions(data.customers); // Initial top 10
+                    setUserOptions(data.users);        // Initial top 10
+                }
+            } catch (err) {
+                console.error("Failed to load options", err);
+            }
+        };
+        fetchOptions();
+    }, []);
 
     const handleSave = async () => {
         setEditLoading(true);
@@ -298,11 +354,14 @@ useEffect(() => {
                                             <TextField
                                                 select fullWidth size="small"
                                                 value={editData.bin_type_id ?? ""}
-                                                onChange={(e) => handleInputChange("bin_type_id", Number(e.target.value))}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    handleInputChange("bin_type_id", isNaN(val) ? null : val);
+                                                }}
                                                 sx={{ mt: 1 }}
                                             >
                                                 {binTypeOptions.map(opt => (
-                                                    <MenuItem key={opt.id} value={opt.id}>{opt.bin_name}</MenuItem>
+                                                    <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>
                                                 ))}
                                             </TextField>
                                         ) : (
@@ -339,23 +398,35 @@ useEffect(() => {
                                     </Grid>
 
                                     {/* Status & Printed */}
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={600}>Status</Typography>
-                                        {isEditing ? (
-                                            <TextField
-                                                select fullWidth size="small"
-                                                value={editData.bin_status_id ?? ""}
-                                                onChange={(e) => handleInputChange("bin_status_id", Number(e.target.value))}
-                                                sx={{ mt: 1 }}
-                                            >
-                                                {statusOptions.map(opt => (
-                                                    <MenuItem key={opt.bin_status_id} value={opt.bin_status_id}>{opt.label}</MenuItem>
-                                                ))}
-                                            </TextField>
-                                        ) : (
-                                            <Typography variant="body1" mt={0.5}>{bin.bin_status_label || "—"}</Typography>
-                                        )}
-                                    </Grid>
+<Grid size={{ xs: 12, sm: 6 }}>
+    <Typography variant="caption" color="text.secondary" fontWeight={600}>Status</Typography>
+    {isEditing ? (
+        <TextField
+            select
+            fullWidth
+            size="small"
+            // Use an empty string if null to satisfy the Select component
+            value={editData.bin_status_id ?? ""}
+            onChange={(e) => {
+                const val = e.target.value;
+                handleInputChange("bin_status_id", val === "" ? null : Number(val));
+            }}
+            sx={{ mt: 1 }}
+        >
+            <MenuItem value=""><em>None</em></MenuItem>
+            {statusOptions.map((opt: any) => (
+                <MenuItem 
+                    key={opt.id || opt.bin_status_id} 
+                    value={opt.id !== undefined ? opt.id : opt.bin_status_id}
+                >
+                    {opt.label}
+                </MenuItem>
+            ))}
+        </TextField>
+    ) : (
+        <Typography variant="body1" mt={0.5}>{bin.bin_status_label || "—"}</Typography>
+    )}
+</Grid>
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={600}>Label Printed</Typography>
                                         {isEditing ? (
@@ -377,39 +448,75 @@ useEffect(() => {
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={600}>Customer</Typography>
                                         {isEditing ? (
-                                            <TextField
-                                                select fullWidth size="small"
-                                                value={editData.customer_id ?? ""}
-                                                onChange={(e) => handleInputChange("customer_id", Number(e.target.value))}
-                                                sx={{ mt: 1 }}
-                                            >
-                                                <MenuItem value=""><em>None</em></MenuItem>
-                                                {customerOptions.map(opt => (
-                                                    <MenuItem key={opt.customer_id} value={opt.customer_id}>{opt.customer_name}</MenuItem>
-                                                ))}
-                                            </TextField>
+                                            <Autocomplete
+                                                options={customerOptions}
+                                                getOptionLabel={(option) => option.customer_name || ""}
+                                                isOptionEqualToValue={(option, value) => option.customer_id === value.customer_id}
+                                                value={customerOptions.find(o => o.customer_id === editData.customer_id) || null}
+                                                loading={isSearchingCust}
+                                                onInputChange={(e, value) => handleSearch('customer', value)}
+                                                onChange={(e, newValue) => handleInputChange("customer_id", newValue?.customer_id || null)}
+                                                renderOption={(props, option) => {
+                                                    // 1. Destructure 'key' from props specifically
+                                                    const { key, ...otherProps } = props;
+
+                                                    return (
+                                                        // 2. Pass that 'key' directly to the <li>
+                                                        <li key={option.customer_id} {...otherProps}>
+                                                            {option.customer_name}
+                                                        </li>
+                                                    );
+                                                }}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        size="small"
+                                                        placeholder="Search Customer..."
+                                                        sx={{ mt: 1 }}
+                                                        slotProps={{
+                                                            input: {
+                                                                ...params.InputProps,
+                                                                endAdornment: (
+                                                                    <React.Fragment>
+                                                                        {isSearchingCust ? <CircularProgress color="inherit" size={20} /> : null}
+                                                                        {params.InputProps.endAdornment}
+                                                                    </React.Fragment>
+                                                                ),
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
+                                            />
                                         ) : (
                                             <Typography variant="body1" mt={0.5}>{bin.customer_name || "—"}</Typography>
                                         )}
                                     </Grid>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={600}>Company</Typography>
-                                        {isEditing ? (
-                                            <TextField
-                                                select fullWidth size="small"
-                                                value={editData.company_id ?? ""}
-                                                onChange={(e) => handleInputChange("company_id", Number(e.target.value))}
-                                                sx={{ mt: 1 }}
-                                            >
-                                                <MenuItem value=""><em>None</em></MenuItem>
-                                                {companyOptions.map(opt => (
-                                                    <MenuItem key={opt.company_id} value={opt.company_id}>{opt.company_name}</MenuItem>
-                                                ))}
-                                            </TextField>
-                                        ) : (
-                                            <Typography variant="body1" mt={0.5}>{bin.company_name || "—"}</Typography>
-                                        )}
-                                    </Grid>
+                                  <Grid size={{ xs: 12, sm: 6 }}>
+    <Typography variant="caption" color="text.secondary" fontWeight={600}>Company</Typography>
+    {isEditing ? (
+        <TextField
+            select
+            fullWidth
+            size="small"
+            // Keep as Number to match the option value type
+            value={editData.company_id ?? ""} 
+            onChange={(e) => {
+                const val = e.target.value;
+                handleInputChange("company_id", val === "" ? null : Number(val));
+            }}
+            sx={{ mt: 1 }}
+        >
+            <MenuItem value=""><em>None</em></MenuItem>
+            {companyOptions.map((opt) => (
+                <MenuItem key={opt.id} value={opt.id}>
+                    {opt.label}
+                </MenuItem>
+            ))}
+        </TextField>
+    ) : (
+        <Typography variant="body1" mt={0.5}>{bin.company_name || "—"}</Typography>
+    )}
+</Grid>
 
                                     {/* Comment (Full Width) */}
                                     <Grid size={{ xs: 12 }}>
@@ -425,7 +532,115 @@ useEffect(() => {
                                             <Typography variant="body1" mt={0.5}>{bin.comment || "—"}</Typography>
                                         )}
                                     </Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={600}>Assigned To</Typography>
+                                        {isEditing ? (
+                                            <Autocomplete
+                                                options={userOptions}
+                                                getOptionLabel={(option) => typeof option === 'string' ? option : (option.label || "")}
+                                                isOptionEqualToValue={(option, value) =>
+                                                    typeof option === 'object' && typeof value === 'object' && option.id === value.id
+                                                }
+                                                // Matches based on the label string since assigned_to is a string in your interface
+                                                // Matches based on ID now
+                                                value={
+                                                    userOptions.find(o => o.id === editData.assigned_to) ||
+                                                    (editData.assigned_to === bin?.assigned_to && bin?.assigned_to_label
+                                                        ? { id: editData.assigned_to!, label: bin.assigned_to_label }
+                                                        : null)
+                                                }
+                                                loading={isSearchingUser}
+                                                freeSolo // Allows manual entry if name isn't in DB
+                                                onInputChange={(e, value) => handleSearch('user', value)}
+                                                onChange={(e, newValue) => {
+                                                    // Send the numeric ID to the state/database
+                                                    if (typeof newValue === 'string') {
+                                                        handleInputChange("assigned_to", null);
+                                                    } else {
+                                                        handleInputChange("assigned_to", newValue?.id || null);
+                                                    }
+                                                }}
+                                                renderInput={(params) => (
+                                                    <TextField
+                                                        {...params}
+                                                        size="small"
+                                                        placeholder="Search Staff..."
+                                                        sx={{ mt: 1 }}
+                                                        slotProps={{
+                                                            input: {
+                                                                ...params.InputProps,
+                                                                endAdornment: (
+                                                                    <React.Fragment>
+                                                                        {isSearchingUser ? <CircularProgress color="inherit" size={20} /> : null}
+                                                                        {params.InputProps.endAdornment}
+                                                                    </React.Fragment>
+                                                                ),
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
+                                            />
+                                        ) : (
+                                            <Typography variant="body1" mt={0.5}>
+                                                {bin.assigned_to_label ? bin.assigned_to_label : "Not Assigned"}
+                                            </Typography>
+                                        )}
+                                    </Grid>
 
+                                    <Grid size={{ xs: 12 }}>
+                                        <Box sx={{
+                                            mt: 4, p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2,
+                                            textAlign: 'center', bgcolor: '#fafafa', justifyContent: 'center', alignItems: 'center',
+                                            "@media print": { border: "none", bgcolor: "transparent", p: 0, mt: 0 }
+                                        }}>
+                                            <Typography variant="subtitle2" gutterBottom color="text.secondary" sx={{ "@media print": { display: "none" } }}>
+                                                4" x 4" LABEL PREVIEW
+                                            </Typography>
+
+                                            {/* Print Section */}
+                                            <Box id="barcode-section" sx={{
+                                                display: 'flex',
+                                                p: 4,
+                                                bgcolor: 'white',
+                                                width: '4in', // Matches physical label
+                                                height: '4in', // Matches physical label
+                                                flexDirection: 'column',
+                                                justifyContent: 'center',
+                                                alignItems: 'center'
+                                            }}>
+                                                <Typography sx={{ fontSize: '16pt', fontWeight: 'bold', color: 'black', mb: 0, lineHeight: 1 }}>
+                                                    Recycling Management Ltd
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '18pt', color: 'black', mb: 2 }}>
+                                                    0121 328 5000
+                                                </Typography>
+
+                                                <Barcode
+                                                    value={bin.bin_number}
+                                                    width={3}      // Increased for 4" width
+                                                    height={120}   // Increased for 4" height
+                                                    fontSize={35}  // Larger text under barcode
+
+                                                    margin={0}
+                                                    background="#ffffff"
+                                                />
+
+                                                <Typography sx={{ fontSize: '22pt', fontWeight: 'bold', color: 'black', mt: 2, textAlign: 'center' }}>
+                                                    {bin.bin_description}
+                                                </Typography>
+                                            </Box>
+
+                                            <Stack direction="row" spacing={2} justifyContent="center" mt={2} sx={{ "@media print": { display: "none" } }}>
+                                                <Button
+                                                    variant="contained"
+                                                    onClick={() => window.print()}
+                                                    startIcon={<PrintIcon />}
+                                                >
+                                                    Print Label
+                                                </Button>
+                                            </Stack>
+                                        </Box>
+                                    </Grid>
                                 </Grid>
 
                                 <Divider />
@@ -454,121 +669,119 @@ useEffect(() => {
                     </div>
 
                     {/* UPDATES TAB */}
-             {/* UPDATES TAB */}
-{/* UPDATES TAB */}
-<div role="tabpanel" hidden={tabValue !== 1}>
+                    <div role="tabpanel" hidden={tabValue !== 1}>
 
 
-    {tabValue === 1 && (
-        <Box sx={{ py: 3, maxWidth: 800, mx: "auto" }}>
-            {activityLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress size={32} />
-                </Box>
-            ) : activities.length === 0 ? (
-                <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No history or movement records found for this bin.
-                </Typography>
-            ) : (
-                <Stack spacing={3}>
-                    {activities.map((item) => {
-                        const isMovement = item.record_type === 'MOVEMENT';
-
-                        // Helper to get the correct text label for the chips
-                       const getDisplayLabel = (type: 'old' | 'new') => {
-    if (isMovement) {
-        return type === 'old' ? item.old_label : item.new_label;
-    }
-
-    const val = type === 'old' ? item.old_value : item.new_value;
-    
-    switch (item.field_name) {
-        case 'customer_id':
-            return (type === 'old' ? item.old_label : item.new_label) || "None";
-        case 'bin_status_id':
-            return (type === 'old' ? item.old_status : item.new_status) || "Unknown";
-        case 'company_id':
-            // Logic for the newly added company mapping
-            return (type === 'old' ? item.old_company : item.new_company) || "None";
-        case 'printed':
-            return val == "1" ? "Yes" : "No";
-        default:
-            return val || "—";
-    }
-};
-                        return (
-                            <Box key={`${item.record_type}-${item.id}`} sx={{ display: 'flex', gap: 2 }}>
-                                {/* Timeline Visuals */}
-                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <Box 
-                                        sx={{ 
-                                            width: 36, height: 36, borderRadius: '50%', 
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            bgcolor: isMovement ? 'success.main' : 'primary.main',
-                                            boxShadow: 1, color: 'white'
-                                        }}
-                                    >
-                                        {isMovement ? '🚚' : '📝'}
+                        {tabValue === 1 && (
+                            <Box sx={{ py: 3, maxWidth: 800, mx: "auto" }}>
+                                {activityLoading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                        <CircularProgress size={32} />
                                     </Box>
-                                    <Box sx={{ width: 2, flexGrow: 1, bgcolor: 'divider', mt: 1 }} />
-                                </Box>
+                                ) : activities.length === 0 ? (
+                                    <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+                                        No history or movement records found for this bin.
+                                    </Typography>
+                                ) : (
+                                    <Stack spacing={3}>
+                                        {activities.map((item) => {
+                                            const isMovement = item.record_type === 'MOVEMENT';
 
-                                {/* Activity Card */}
-                                <Card variant="outlined" sx={{ flexGrow: 1, borderRadius: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-                                            <Box>
-                                                <Typography variant="subtitle2" fontWeight="bold" color={isMovement ? "success.dark" : "primary.dark"}>
-                                                    {isMovement ? "BIN MOVEMENT" : `EDITED: ${item.field_name?.replace(/_/g, " ").toUpperCase()}`}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {new Date(item.event_date).toLocaleString()}
-                                                </Typography>
-                                            </Box>
-                                            <Chip 
-                                                label={isMovement ? "Movement" : "Edit"} 
-                                                size="small" 
-                                                variant="outlined" 
-                                                color={isMovement ? "success" : "default"} 
-                                            />
-                                        </Stack>
+                                            // Helper to get the correct text label for the chips
+                                            const getDisplayLabel = (type: 'old' | 'new') => {
+                                                if (isMovement) {
+                                                    return type === 'old' ? item.old_label : item.new_label;
+                                                }
 
-                                        {/* Value Transition */}
-                                        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ bgcolor: '#f8fafc', p: 1.5, borderRadius: 1 }}>
-                                            <Box sx={{ textAlign: 'center', flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary" display="block">FROM</Typography>
-                                                <Typography variant="body2" fontWeight="medium">{getDisplayLabel('old') || "Unassigned"}</Typography>
-                                            </Box>
-                                            
-                                            <Typography variant="h6" color="text.disabled">→</Typography>
-                                            
-                                            <Box sx={{ textAlign: 'center', flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary" display="block">TO</Typography>
-                                                <Typography variant="body2" fontWeight="bold" color="primary">{getDisplayLabel('new') || "Unassigned"}</Typography>
-                                            </Box>
-                                        </Stack>
+                                                const val = type === 'old' ? item.old_value : item.new_value;
 
-                                        {/* Meta Data (Job Notes / User) */}
-                                        <Stack spacing={0.5} sx={{ mt: 1.5 }}>
-                                            {isMovement && (
-                                                <Typography variant="body2" color="text.primary" sx={{ bgcolor: '#fff9c4', p: 1, borderRadius: 1, borderLeft: '3px solid #fbc02d' }}>
-                                                    <strong>Job #{item.job_id}:</strong> {item.job_notes || "No job notes provided."}
-                                                </Typography>
-                                            )}
-                                            <Typography variant="caption" color="text.secondary">
-                                                Performed by: <strong>{item.user_name || "System"}</strong>
-                                            </Typography>
-                                        </Stack>
-                                    </CardContent>
-                                </Card>
+                                                switch (item.field_name) {
+                                                    case 'customer_id':
+                                                        return (type === 'old' ? item.old_label : item.new_label) || "None";
+                                                    case 'bin_status_id':
+                                                        return (type === 'old' ? item.old_status : item.new_status) || "Unknown";
+                                                    case 'company_id':
+                                                        // Logic for the newly added company mapping
+                                                        return (type === 'old' ? item.old_company : item.new_company) || "None";
+                                                    case 'printed':
+                                                        return val == "1" ? "Yes" : "No";
+                                                    default:
+                                                        return val || "—";
+                                                }
+                                            };
+                                            return (
+                                                <Box key={`${item.record_type}-${item.id}`} sx={{ display: 'flex', gap: 2 }}>
+                                                    {/* Timeline Visuals */}
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                        <Box
+                                                            sx={{
+                                                                width: 36, height: 36, borderRadius: '50%',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                bgcolor: isMovement ? 'success.main' : 'primary.main',
+                                                                boxShadow: 1, color: 'white'
+                                                            }}
+                                                        >
+                                                            {isMovement ? '🚚' : '📝'}
+                                                        </Box>
+                                                        <Box sx={{ width: 2, flexGrow: 1, bgcolor: 'divider', mt: 1 }} />
+                                                    </Box>
+
+                                                    {/* Activity Card */}
+                                                    <Card variant="outlined" sx={{ flexGrow: 1, borderRadius: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                                                        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+                                                                <Box>
+                                                                    <Typography variant="subtitle2" fontWeight="bold" color={isMovement ? "success.dark" : "primary.dark"}>
+                                                                        {isMovement ? "BIN MOVEMENT" : `EDITED: ${item.field_name?.replace(/_/g, " ").toUpperCase()}`}
+                                                                    </Typography>
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        {new Date(item.event_date).toLocaleString()}
+                                                                    </Typography>
+                                                                </Box>
+                                                                <Chip
+                                                                    label={isMovement ? "Movement" : "Edit"}
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    color={isMovement ? "success" : "default"}
+                                                                />
+                                                            </Stack>
+
+                                                            {/* Value Transition */}
+                                                            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ bgcolor: '#f8fafc', p: 1.5, borderRadius: 1 }}>
+                                                                <Box sx={{ textAlign: 'center', flex: 1 }}>
+                                                                    <Typography variant="caption" color="text.secondary" display="block">FROM</Typography>
+                                                                    <Typography variant="body2" fontWeight="medium">{getDisplayLabel('old') || "Unassigned"}</Typography>
+                                                                </Box>
+
+                                                                <Typography variant="h6" color="text.disabled">→</Typography>
+
+                                                                <Box sx={{ textAlign: 'center', flex: 1 }}>
+                                                                    <Typography variant="caption" color="text.secondary" display="block">TO</Typography>
+                                                                    <Typography variant="body2" fontWeight="bold" color="primary">{getDisplayLabel('new') || "Unassigned"}</Typography>
+                                                                </Box>
+                                                            </Stack>
+
+                                                            {/* Meta Data (Job Notes / User) */}
+                                                            <Stack spacing={0.5} sx={{ mt: 1.5 }}>
+                                                                {isMovement && (
+                                                                    <Typography variant="body2" color="text.primary" sx={{ bgcolor: '#fff9c4', p: 1, borderRadius: 1, borderLeft: '3px solid #fbc02d' }}>
+                                                                        <strong>Job #{item.job_id}:</strong> {item.job_notes || "No job notes provided."}
+                                                                    </Typography>
+                                                                )}
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    Performed by: <strong>{item.user_name || "System"}</strong>
+                                                                </Typography>
+                                                            </Stack>
+                                                        </CardContent>
+                                                    </Card>
+                                                </Box>
+                                            );
+                                        })}
+                                    </Stack>
+                                )}
                             </Box>
-                        );
-                    })}
-                </Stack>
-            )}
-        </Box>
-    )}
-</div>
+                        )}
+                    </div>
 
                     {/* JOBS TAB */}
                     <div role="tabpanel" hidden={tabValue !== 2}>

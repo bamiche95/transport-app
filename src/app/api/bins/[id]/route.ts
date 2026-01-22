@@ -24,12 +24,14 @@ export async function GET(
         bt.bin_name, 
         c.customer_name, 
         cm.company_name,
-        bs.label AS bin_status_label
+        bs.label AS bin_status_label,
+        CONCAT(u.first_name, ' ', u.last_name) AS assigned_to_label
       FROM bins b
       LEFT JOIN bintype bt ON b.bin_type_id = bt.bin_type_id 
       LEFT JOIN customer c ON b.customer_id = c.customer_id
       LEFT JOIN company cm ON b.company_id = cm.company_id
       LEFT JOIN bin_status bs ON b.bin_status_id = bs.bin_status_id
+      LEFT JOIN users u ON b.assigned_to = u.user_id
       WHERE b.bin_id = ?
       `,
       [binId]
@@ -78,74 +80,50 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const binId = parseInt(id, 10);
-  if (isNaN(binId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
-
   const body = await req.json();
-  const allowedFields = [
-    "bin_number", "bin_description", "bin_type_id",
-    "customer_id", "company_id", "bin_status_id", 
-    "bin_condition", "comment", "printed",
-  ];
 
-  const updates = Object.keys(body).filter((k) => allowedFields.includes(k));
-  if (!updates.length) return NextResponse.json({ error: "No fields to update" });
+  // Whitelist allowable fields for update
+  const {
+    bin_number, bin_description, bin_type_id,
+    customer_id, company_id, bin_status_id,
+    bin_condition, comment, printed, assigned_to
+  } = body;
 
-  const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-
-    // 1. Fetch current bin state before update for comparison
-    const [rows]: any = await connection.query(
-      "SELECT * FROM bins WHERE bin_id = ?",
-      [binId]
-    );
-    const currentBin = rows[0];
-
-    if (!currentBin) {
-      throw new Error("Bin not found");
-    }
-
-    // 2. Log changes to bin_activity
-    for (const field of updates) {
-      const oldValue = currentBin[field];
-      const newValue = body[field];
-
-      // Only log if the value is actually different
-      // Note: Using != instead of !== to handle string vs number comparisons from forms
-      if (oldValue != newValue) {
-        await connection.query(
-          `INSERT INTO bin_activity (bin_id, user_id, field_name, old_value, new_value)
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            binId, 
-            user.id, 
-            field, 
-            oldValue === null ? "None" : String(oldValue), 
-            newValue === null ? "None" : String(newValue)
-          ]
-        );
-      }
-    }
-
-    // 3. Perform the actual update
-    const setClause = updates.map((k) => `${k} = ?`).join(", ");
-    const values = updates.map((k) => body[k]);
-
-    await connection.query(
-      `UPDATE bins 
-       SET ${setClause}, modified_by = ?, modified_at = NOW() 
+    await pool.query(
+      `UPDATE bins SET 
+        bin_number = ?, bin_description = ?, bin_type_id = ?, 
+        customer_id = ?, company_id = ?, bin_status_id = ?, 
+        bin_condition = ?, comment = ?, printed = ?, assigned_to = ?,
+        modified_at = NOW()
        WHERE bin_id = ?`,
-      [...values, user.id, binId]
+      [
+        bin_number, bin_description, bin_type_id,
+        customer_id, company_id, bin_status_id,
+        bin_condition, comment, printed, assigned_to, id
+      ]
     );
 
-    await connection.commit();
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    await connection.rollback();
-    console.error("Database error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
-  } finally {
-    connection.release();
   }
 }
+
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getUserFromJWT();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+
+  try {
+    await pool.query("DELETE FROM bins WHERE bin_id = ?", [id]);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+} 
