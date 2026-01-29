@@ -39,7 +39,7 @@ export default function SidebarContent() {
   if (!mounted) return null;
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: 2, boxShadow: 2, borderRadius: 2, height: '100vh', overflowY: 'auto' }}>
       <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 1, fontWeight: 'bold', px: 2 }}>
         SAVED VIEWS
       </Typography>

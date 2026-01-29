@@ -57,11 +57,11 @@ export default function CustomersPage() {
   );
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box>
       <ReusableDataTable 
         data={customers} 
         allAvailableColumns={customerColumns} 
-        pageName="customers"
+        pageName="customer"
         onCellEdit={handleCustomersEdit}
         detailPagePath="/customers/[id]"
         idField="customer_id"

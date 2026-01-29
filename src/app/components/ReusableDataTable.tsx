@@ -13,8 +13,13 @@ import {
   ColumnFiltersState,
   VisibilityState,
   SortingState,
+  HeaderGroup,
+  Row,
+  Cell,
+  Table as ReactTable
 } from "@tanstack/react-table";
 import { useFilterStore } from "@/store/useFilterStore";
+import GetAppIcon from '@mui/icons-material/GetApp';
 import {
   Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Button, Typography, IconButton, Divider,
@@ -30,6 +35,7 @@ import TableLayoutDrawer from "./LayoutView";
 import { CellEditPayload } from "../types/CellEditPayload";
 import { EditableColumnMeta } from "../types/EditableColumnMeta";
 import EditableCell from "./EditableCell";
+import DetailQuickView from "./DetailQuickView";
 
 interface ReusableTableProps {
   data: any[];
@@ -43,13 +49,14 @@ interface ReusableTableProps {
 
 export default function ReusableDataTable({ data, allAvailableColumns, pageName, onCellEdit, onDeleteRows, detailPagePath, idField = "id" }: ReusableTableProps) {
   const router = useRouter();
+  const [tableData, setTableData] = useState(data);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [sorting, setSorting] = useState<SortingState>([]);
   const [filterInputs, setFilterInputs] = useState<Record<string, string>>({});
-  const [rowSelection, setRowSelection] = useState({}); // New Selection State
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const [editingCell, setEditingCell] = useState<{ rowId: string, colId: string } | null>(null);
   const [errorSnackbar, setErrorSnackbar] = useState<{ open: boolean; message: string }>({ open: false, message: "" });
@@ -65,6 +72,118 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
 
   // savedFilters here
   const { setActiveTable, setSavedFilters, savedFilters } = useFilterStore();
+  const rowLength = tableData.length;
+
+  // Helper to sanitize state against current columns
+  const sanitizeState = (config: any, tableInstance: ReactTable<any>) => {
+    const validIds = new Set(tableInstance.getAllLeafColumns().map(c => c.id));
+    return {
+      filters: (config.filters || []).filter((f: any) => validIds.has(f.id)) as ColumnFiltersState,
+      visibility: Object.fromEntries(
+        Object.entries(config.visibility || {}).filter(([id]) => validIds.has(id))
+      ) as VisibilityState,
+      columnOrder: (config.columnOrder || []).filter((id: string) => validIds.has(id)) as string[]
+    };
+  };
+
+  // Define custom filter functions
+  const filterFns = useMemo(() => ({
+    weakEquals: (row: any, columnId: string, filterValue: any) => {
+      const rowValue = row.getValue(columnId);
+      if (filterValue === "" || filterValue === undefined || filterValue === null) return true;
+      return String(rowValue) === String(filterValue);
+    },
+    // flexibleSearch is now defined inline in columnsWithSelection to avoid circular dependency with 'table'
+    relativeDate: (row: any, columnId: string, filterValue: any) => {
+      if (!filterValue) return true;
+      const rowValue = row.getValue(columnId);
+      if (!rowValue) return false;
+
+      const date = new Date(rowValue);
+      const now = new Date();
+
+      const startOfDay = (d: Date) => {
+        const res = new Date(d);
+        res.setHours(0, 0, 0, 0);
+        return res;
+      };
+
+      const endOfDay = (d: Date) => {
+        const res = new Date(d);
+        res.setHours(23, 59, 59, 999);
+        return res;
+      };
+
+      const today = startOfDay(now);
+      const tomorrow = addDays(today, 1);
+      const yesterday = subDays(today, 1);
+
+      function addDays(d: Date, days: number) {
+        const res = new Date(d);
+        res.setDate(res.getDate() + days);
+        return res;
+      }
+      function subDays(d: Date, days: number) {
+        return addDays(d, -days);
+      }
+
+      const jobTime = date.getTime();
+
+      // Handle Range Filter (comma separated)
+      if (filterValue.includes(',')) {
+        const [startStr, endStr] = filterValue.split(',');
+        const s = startStr ? startOfDay(new Date(startStr)).getTime() : -Infinity;
+        const e = endStr ? endOfDay(new Date(endStr)).getTime() : Infinity;
+        return jobTime >= s && jobTime <= e;
+      }
+
+      switch (filterValue) {
+        case "today":
+          return jobTime >= today.getTime() && jobTime <= endOfDay(today).getTime();
+        case "yesterday":
+          return jobTime >= yesterday.getTime() && jobTime <= endOfDay(yesterday).getTime();
+        case "tomorrow":
+          return jobTime >= tomorrow.getTime() && jobTime <= endOfDay(tomorrow).getTime();
+        case "this_week": {
+          const start = new Date(today);
+          start.setDate(today.getDate() - today.getDay());
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          return jobTime >= start.getTime() && jobTime <= endOfDay(end).getTime();
+        }
+        case "last_week": {
+          const start = new Date(today);
+          start.setDate(today.getDate() - today.getDay() - 7);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          return jobTime >= start.getTime() && jobTime <= endOfDay(end).getTime();
+        }
+        case "next_week": {
+          const start = new Date(today);
+          start.setDate(today.getDate() - today.getDay() + 7);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          return jobTime >= start.getTime() && jobTime <= endOfDay(end).getTime();
+        }
+        case "last_7_days":
+          return jobTime >= subDays(today, 7).getTime() && jobTime <= endOfDay(today).getTime();
+        case "next_7_days":
+          return jobTime >= today.getTime() && jobTime <= endOfDay(addDays(today, 7)).getTime();
+        case "this_month": {
+          const start = new Date(now.getFullYear(), now.getMonth(), 1);
+          const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          return jobTime >= start.getTime() && jobTime <= endOfDay(end).getTime();
+        }
+        case "last_month": {
+          const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const end = new Date(now.getFullYear(), now.getMonth(), 0);
+          return jobTime >= start.getTime() && jobTime <= endOfDay(end).getTime();
+        }
+        default:
+          return true;
+      }
+    },
+  }), []);
 
   // Add Checkbox Column to the beginning of columns
   const columnsWithSelection = useMemo<ColumnDef<any, any>[]>(() => [
@@ -79,20 +198,49 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
         />
       ),
       cell: ({ row }) => (
-        <Checkbox
-          size="small"
-          checked={row.getIsSelected()}
-          disabled={!row.getCanSelect()}
-          onChange={row.getToggleSelectedHandler()}
-        />
+        <Stack direction="row" spacing={1}>
+          <Checkbox
+            size="small"
+            checked={row.getIsSelected()}
+            disabled={!row.getCanSelect()}
+            onClick={(e) => e.stopPropagation()} // <<< Prevent row click
+            onChange={row.getToggleSelectedHandler()}
+          />
+
+          <DetailQuickView data={row.original} />
+        </Stack>
       ),
     },
-    ...allAvailableColumns,
+    ...allAvailableColumns.map(col => ({
+      ...col,
+      id: col.id || (col as any).accessorKey, // Ensure ID is preserved
+      // Use robust flexibleSearch mapping for all non-date columns
+      filterFn: (col.meta as any)?.inputType === 'date'
+        ? 'relativeDate'
+        : (row: any, columnId: string, filterValue: any) => {
+          if (!filterValue) return true;
+          const rowValue = row.getValue(columnId);
+          const search = String(filterValue).toLowerCase();
+
+          // 1. Search in raw value (works for text, IDs, numbers, etc)
+          if (String(rowValue ?? "").toLowerCase().includes(search)) return true;
+
+          // 2. Search in option labels if options exist (for columns where IDs are stored but labels shown)
+          const options = (col.meta as any)?.options;
+          if (options) {
+            return options.some((opt: any) =>
+              opt.label.toLowerCase().includes(search) && String(opt.value) === String(rowValue)
+            );
+          }
+          return false;
+        },
+    }) as any),
   ], [allAvailableColumns]);
 
-  const table = useReactTable({
-    data,
+  const table: ReactTable<any> = useReactTable({
+    data: tableData,
     columns: columnsWithSelection,
+    filterFns, // Register custom filter functions
     state: { columnVisibility, columnFilters, sorting, rowSelection, columnOrder },
     initialState: {
       pagination: {
@@ -118,11 +266,35 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
   const selectedRows = table.getSelectedRowModel().rows;
   const isSelectionEmpty = selectedRows.length === 0;
 
-  const handleDelete = () => {
-    const idsToDelete = selectedRows.map(row => row.id);
-    onDeleteRows?.(idsToDelete);
-    setRowSelection({}); // Clear selection after delete
+  const handleDeleteSelected = async (entityName: string, idField: string = "id") => {
+    const selectedRowIds = Object.keys(rowSelection).filter(id => rowSelection[id]);
+    if (selectedRowIds.length === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${selectedRowIds.length} ${entityName}(s)?`)) return;
+
+    try {
+      const res = await fetch(`/api/tabledeleterows`, {
+        method: "POST", // generic delete endpoint
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: entityName, ids: selectedRowIds, idField: 'bin_type_id' }),
+      });
+
+      if (!res.ok) throw new Error("Failed to delete rows");
+
+      // ✅ Remove deleted rows from local state
+      setTableData(prev => prev.filter(row => !selectedRowIds.includes(String(row[idField]))));
+
+      // Clear selection
+      setRowSelection({});
+
+      alert(`${selectedRowIds.length} ${entityName}(s) deleted successfully!`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to delete rows");
+    }
   };
+
+
 
   const handleGlobalSearch = () => {
     const newFilters = Object.entries(filterInputs)
@@ -133,11 +305,16 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
 
 
   const handleAdd = async () => {
-    // Convert pageName to route (e.g., "Inventory Management" -> "inventory/new")
-    const pageRoute = pageName.toLowerCase().replace(/\s+management/i, '');
-    router.push(`/${pageRoute}/new`);
-  };
+    const baseRoute = pageName.toLowerCase().trim();
 
+    if (baseRoute === "jobs") {
+      // This will trigger the [id] page with params.id = "new"
+      router.push("/jobs/new");
+    } else {
+      const pageRoute = baseRoute.replace(/\s+management/i, '');
+      router.push(`/${pageRoute}/new`);
+    }
+  };
 
   const handleSaveEdit = async (row: any, cell: any, newValue: any) => {
     const columnDef = cell.column.columnDef;
@@ -187,15 +364,17 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
         const defaultView = filters.find((f: any) => f.is_default === 1);
 
         if (defaultView) {
-          const config = typeof defaultView.config_json === 'string'
+          const rawConfig = typeof defaultView.config_json === 'string'
             ? JSON.parse(defaultView.config_json)
             : defaultView.config_json;
 
-          table.setColumnFilters(config.filters || []);
-          table.setColumnVisibility(config.visibility || {});
+          const config = sanitizeState(rawConfig, table);
+
+          table.setColumnFilters(config.filters);
+          table.setColumnVisibility(config.visibility);
 
           // --- ADD THIS PART ---
-          if (config.columnOrder && config.columnOrder.length > 0) {
+          if (config.columnOrder.length > 0) {
             table.setColumnOrder(config.columnOrder);
           } else {
             // If no order saved, initialize with default column IDs
@@ -212,6 +391,15 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
     };
     if (pageName) fetchFilters();
   }, [pageName]); // Removed 'table' from deps to prevent infinite loops
+
+  // Sync filter inputs when column filters change (e.g. from drawer)
+  React.useEffect(() => {
+    const inputs: Record<string, string> = {};
+    columnFilters.forEach((f) => {
+      inputs[f.id] = String(f.value);
+    });
+    setFilterInputs(inputs);
+  }, [columnFilters]);
 
   const pageSizes = [200, 250, 300, 350, 400, 500, data.length];
 
@@ -255,7 +443,10 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
         </TextField>
       </Stack>
 
-      <Stack direction="row">
+      <Stack direction="row" alignItems="center">
+        <Typography variant="caption" sx={{ mr: 1 }}>
+          Showing {table.getFilteredRowModel().rows.length} records of {data.length}
+        </Typography>
         <IconButton
           size="small"
           onClick={() => table.previousPage()}
@@ -284,6 +475,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
     const config = {
       filters: table.getState().columnFilters,
       visibility: table.getState().columnVisibility,
+      columnOrder: table.getState().columnOrder,
     };
 
     try {
@@ -358,11 +550,13 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
   const applyFilter = (configJson: any) => {
     try {
       const config = typeof configJson === 'string' ? JSON.parse(configJson) : configJson;
-      table.setColumnFilters(config.filters || []);
-      table.setColumnVisibility(config.visibility || {});
+      const clean = sanitizeState(config, table);
 
-      if (config.columnOrder) {
-        table.setColumnOrder(config.columnOrder);
+      table.setColumnFilters(clean.filters);
+      table.setColumnVisibility(clean.visibility);
+
+      if (clean.columnOrder.length > 0) {
+        table.setColumnOrder(clean.columnOrder);
       } else {
         // Fallback to default order if none exists
         table.resetColumnOrder();
@@ -378,8 +572,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
       display: "flex",
       flexDirection: "column",
       gap: 2,
-      p: 3,
-      width: "100%",      // Add this
+  
       maxWidth: "100vw",  // Add this
       boxSizing: "border-box"
     }}>
@@ -391,18 +584,21 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
             variant="contained"
             color="error"
             startIcon={<Delete />}
-            disabled={isSelectionEmpty}
-            onClick={handleDelete}
+            disabled={Object.keys(rowSelection).filter(id => rowSelection[id]).length === 0}
+            onClick={() => handleDeleteSelected(pageName.toLowerCase(), idField)}
           >
             Delete
           </Button>
+
+
+
           <Button
             variant="contained"
             color="primary"
-            startIcon={<EditIcon />}
+            startIcon={<GetAppIcon />}
             disabled={selectedRows.length !== 1} // Only enable edit if exactly ONE is selected
           >
-            Bulk Edit
+            Export
           </Button>
         </Stack>
 
@@ -422,10 +618,10 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
 
       <Paper elevation={3} sx={{ overflow: 'hidden' }}>
         <PaginationControls />
-        <TableContainer sx={{ maxHeight: 600, overflowX: 600, whiteSpace: "nowrap" }}>
+        <TableContainer sx={{ maxHeight:700, overflowX: 600, whiteSpace: "nowrap" }}>
           <Table stickyHeader size="small" sx={{ tableLayout: "fixed" }}>
             <TableHead>
-              {table.getHeaderGroups().map(headerGroup => (
+              {table.getHeaderGroups().map((headerGroup: HeaderGroup<any>) => (
                 <React.Fragment key={headerGroup.id}>
                   <TableRow>
                     {headerGroup.headers.map(header => (
@@ -436,6 +632,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                           bgcolor: "#f1f5f9", fontWeight: 'bold', cursor: header.column.id !== 'select' ? 'pointer' : 'default', top: 0, // Sticks to the very top
                           left: 0,
                           zIndex: 3,
+                          fontSize: 12
                         }}
                       >
                         <Stack direction="row" alignItems="center" spacing={1}>
@@ -464,28 +661,98 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                         <TableCell key={header.id} sx={{ bgcolor: "#f8fafc", py: 1, top: 40, zIndex: 2 }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             {index === 0 && (
-                              <IconButton color="primary" onClick={handleGlobalSearch} size="small" sx={{ bgcolor: 'white', border: '1px solid #e2e8f0' }}>
-                                <Search fontSize="small" />
+                              <IconButton color="primary" onClick={handleGlobalSearch} size="small" sx={{ bgcolor: 'white', border: '1px solid #e2e8f0', fontSize: 11 }}>
+                                <Search fontSize="small" /> Search
                               </IconButton>
                             )}
                             {!isSelect && (
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type={isDate ? "date" : "text"}
-                                value={filterInputs[header.id] || ""}
-                                onChange={(e) => setFilterInputs(p => ({ ...p, [header.id]: e.target.value }))}
-                                // Corrected slotProps syntax:
-                                slotProps={{
-                                  inputLabel: {
-                                    shrink: isDate ? true : undefined,
-                                  },
-                                }}
-                                sx={{
-                                  bgcolor: 'white',
-                                  '& .MuiInputBase-input': { fontSize: '0.75rem' }
-                                }}
-                              />
+                              columnMeta?.options ? (
+                                <TextField
+                                  select
+                                  fullWidth
+                                  size="small"
+                                  value={filterInputs[header.id] || ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFilterInputs(p => ({ ...p, [header.id]: val }));
+                                    table.getColumn(header.id)?.setFilterValue(val);
+                                  }}
+                                  slotProps={{
+                                    select: {
+                                      native: true,
+                                    },
+                                  }}
+                                  sx={{
+                                    bgcolor: 'white',
+                                    '& .MuiInputBase-input': { fontSize: '0.75rem' }
+                                  }}
+                                >
+                                  <option value="">All</option>
+                                  {columnMeta.options.map((opt: any) => (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </TextField>
+                              ) : isDate ? (
+                                <Stack direction="row" spacing={0.5} sx={{ width: '100%' }}>
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="date"
+                                    value={filterInputs[header.id]?.split(',')[0] || ""}
+                                    onChange={(e) => {
+                                      const current = filterInputs[header.id] || ",";
+                                      const parts = current.split(',');
+                                      const to = parts[1] || "";
+                                      setFilterInputs(p => ({ ...p, [header.id]: `${e.target.value},${to}` }));
+                                    }}
+                                    slotProps={{
+                                      inputLabel: { shrink: true },
+                                    }}
+                                    sx={{
+                                      bgcolor: 'white',
+                                      '& .MuiInputBase-input': { fontSize: '0.65rem', padding: '4px' }
+                                    }}
+                                  />
+                                  <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="date"
+                                    value={filterInputs[header.id]?.split(',')[1] || ""}
+                                    onChange={(e) => {
+                                      const current = filterInputs[header.id] || ",";
+                                      const parts = current.split(',');
+                                      const from = parts[0] || "";
+                                      setFilterInputs(p => ({ ...p, [header.id]: `${from},${e.target.value}` }));
+                                    }}
+                                    slotProps={{
+                                      inputLabel: { shrink: true },
+                                    }}
+                                    sx={{
+                                      bgcolor: 'white',
+                                      '& .MuiInputBase-input': { fontSize: '0.65rem', padding: '4px' }
+                                    }}
+                                  />
+                                </Stack>
+                              ) : (
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="text"
+                                  value={filterInputs[header.id] || ""}
+                                  onChange={(e) => setFilterInputs(p => ({ ...p, [header.id]: e.target.value }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleGlobalSearch();
+                                    }
+                                  }}
+                                  sx={{
+                                    bgcolor: 'white',
+                                    '& .MuiInputBase-input': { fontSize: '0.75rem' }
+                                  }}
+                                />
+                              )
                             )}
                           </Stack>
                         </TableCell>
@@ -497,7 +764,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
             </TableHead>
 
             <TableBody>
-              {table.getRowModel().rows.map(row => (
+              {table.getRowModel().rows.map((row: Row<any>) => (
                 <TableRow
                   key={row.id}
                   selected={row.getIsSelected()}
@@ -517,7 +784,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                     transition: "background-color 0.2s",
                   }}
                 >
-                  {row.getVisibleCells().map(cell => {
+                  {row.getVisibleCells().map((cell: Cell<any, any>) => {
                     const isEditing = editingCell?.rowId === row.id && editingCell?.colId === cell.column.id;
 
                     return (
@@ -532,8 +799,12 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                           whiteSpace: "nowrap",
                           zIndex: isEditing ? 10 : "auto",
                           "&:hover .edit-btn": { opacity: 1 },
-                          fontSize: 12,
 
+                          // --- ADD THIS ---
+                          fontSize: "11px !important", // Use !important to override component defaults
+                          "& *": {
+                            fontSize: "11px !important", // Force all child elements (Chips, Inputs, Typography)
+                          },
                         }}
                       >
                         {cell.column.id === 'select' ? (
@@ -550,6 +821,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                             }
                             onSave={(value: any) => handleSaveEdit(row, cell, value)}
                             onCancel={() => setEditingCell(null)}
+
                           />
                         )}
                       </TableCell>

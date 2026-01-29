@@ -30,7 +30,7 @@ export default async function AppLayout({
       <main className="flex flex-1 w-full overflow-hidden"> 
         
         {/* Sidebar: Use fixed width so it doesn't squish */}
-        <aside className="w-60 flex-shrink-0 bg-gray-100 border-r border-gray-200">
+        <aside className="w-60 flex-shrink-0 bg-gray-100 border-r border-gray-200 h-screen">
           <SidebarContent />
         </aside>
 

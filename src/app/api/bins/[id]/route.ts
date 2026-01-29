@@ -50,11 +50,13 @@ export async function GET(
       SELECT 
         j.*,
         c.customer_name,
-        co.company_name
+        co.company_name,
+        js.job_status_name
       FROM jobs j
       JOIN job_bins jb ON j.job_id = jb.job_id
       LEFT JOIN customer c ON j.customer_id = c.customer_id
       LEFT JOIN company co ON j.company_id = co.company_id
+      LEFT JOIN job_status js ON j.job_status_id = js.job_status_id
       WHERE jb.bin_id = ?
       ORDER BY j.job_datetime DESC
       `,

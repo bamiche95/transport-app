@@ -201,7 +201,7 @@ export default function EditableCell({
                     ) : (
                         <TextField
                             fullWidth
-                            size="small"
+                            size="medium"
                             type={inputType}
                             variant="standard"
                             value={tempValue || ""}

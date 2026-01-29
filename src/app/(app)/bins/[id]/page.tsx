@@ -261,8 +261,8 @@ export default function BinDetailPage() {
     // Columns for Jobs Tab
     const jobsColumns = useMemo<ColumnDef<any>[]>(() => [
         columnHelper.accessor("job_id", { header: "Job ID" }),
-        columnHelper.accessor("status", {
-            header: "Status",
+        columnHelper.accessor("job_status_name", {
+            header: "Job Status",
             cell: (info) => {
                 const val = info.getValue() as string;
                 // Simple status chip or text

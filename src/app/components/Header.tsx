@@ -15,6 +15,7 @@ export default function Header({ user }: { user: any }) {
         { name: 'Customers', href: '/customers' },
         { name: 'Bins', href: '/bins' },
         { name: 'Inventory', href: '/inventory' },
+        { name: 'Driver Jobs', href: '/driver-jobs' },
     ];
 
     const handleLogout = async () => {

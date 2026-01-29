@@ -315,7 +315,7 @@ export default function BinsPage() {
   if (loading) return <Box sx={{ p: 8 }}><Typography>Loading Bins...</Typography></Box>;
 
   return (
-    <div className="p-8">
+    <div>
  
       <ReusableDataTable
 
