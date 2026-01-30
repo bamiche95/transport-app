@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db"; // your MySQL pool connection
 
 export async function GET(req: NextRequest) {
-  const connection = await pool.getConnection();
-  try {
-    // Fetch all jobs with driver info, priority, status, company
-    const [rows] = await connection.query(`
+    const connection = await pool.getConnection();
+    try {
+        // Fetch all jobs with driver info, priority, status, company
+        const [rows] = await connection.query(`
       SELECT 
         j.job_id,
         j.priority,
@@ -19,14 +19,15 @@ export async function GET(req: NextRequest) {
       LEFT JOIN company c ON j.company_id = c.company_id
       LEFT JOIN customer cu ON j.customer_id = cu.customer_id
       LEFT JOIN users u ON j.assigned_to = u.user_id
+      WHERE DATE(j.job_date) = CURDATE()
       ORDER BY j.assigned_to, j.priority ASC
     `);
 
-    return NextResponse.json(rows);
-  } catch (err: any) {
-    console.error("API Error /jobs/by-driver:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  } finally {
-    connection.release();
-  }
+        return NextResponse.json(rows);
+    } catch (err: any) {
+        console.error("API Error /jobs/by-driver:", err);
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    } finally {
+        connection.release();
+    }
 }

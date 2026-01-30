@@ -77,6 +77,8 @@ export default function JobsPage() {
   const [assignedToOptions, setAssignedToOptions] = useState<AssignedToOptions[]>([]);
 
   const [priorityOptions, setPriorityOptions] = useState<{ label: string, value: string }[]>([]);
+  const [colorRules, setColorRules] = useState<{ match_term: string, color_code: string, text_color: string }[]>([]);
+
   // Normalized options for ReusableDataTable's EditableCell
   const normalizedJobTypes = jobTypeOptions.map((o: any) => ({ label: o.job_type_name, value: o.job_type_id }));
   const normalizedWasteTypes = wasteTypeOptions.map((o: any) => ({ label: o.waste_type_name, value: o.waste_type_id }));
@@ -87,22 +89,22 @@ export default function JobsPage() {
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const [jobTypes, wasteTypes, binTypes, jobStatusTypes, priorityRes, assignedToRes] = await Promise.all([
+        const [jobTypes, wasteTypes, binTypes, jobStatusTypes, priorityRes, assignedToRes, colorRulesRes] = await Promise.all([
           fetch("/api/jobs/jobtype").then((res) => res.json()),
           fetch("/api/jobs/wastetypes").then((res) => res.json()),
           fetch("/api/bintype").then((res) => res.json()),
           fetch("/api/jobs/jobstatus").then((res) => res.json()),
           fetch("/api/jobs/priority").then((res) => res.json()),
           fetch("/api/jobs/assigned-to").then((res) => res.json()),
-
-
+          fetch("/api/color-rules").then((res) => res.json()),
         ]);
         setJobTypeOptions(jobTypes);
         setWasteTypeOptions(wasteTypes);
         setBinTypeOptions(binTypes);
         setJobStatusOptions(jobStatusTypes);
         setPriorityOptions(priorityRes);
-        setAssignedToOptions(assignedToRes)
+        setAssignedToOptions(assignedToRes);
+        setColorRules(Array.isArray(colorRulesRes) ? colorRulesRes : []);
       } catch (err) {
         console.error("Failed to load options", err);
       }
@@ -389,6 +391,17 @@ export default function JobsPage() {
         onCellEdit={handleJobsEdit}
         detailPagePath="/jobs/[id]/jobdetails"
         idField="job_id"
+        getRowStyle={(row) => {
+          const binName = String(row.bin_name || "").toLowerCase();
+          const rule = colorRules.find(r => binName.includes(r.match_term.toLowerCase()));
+          if (rule) {
+            return {
+              backgroundColor: rule.color_code,
+              color: rule.text_color,
+            };
+          }
+          return {};
+        }}
       />
     </div>
   );

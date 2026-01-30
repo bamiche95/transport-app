@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useFilterStore } from "@/store/useFilterStore";
 import { List, ListItem, ListItemButton, ListItemText, Typography, Divider, Box, Chip, Stack } from "@mui/material";
 import { usePathname } from "next/navigation";
+import { Filter } from "lucide-react";
 
 export default function SidebarContent() {
   const { activeTable, savedFilters } = useFilterStore();
@@ -17,10 +18,10 @@ export default function SidebarContent() {
     if (!activeTable) return;
     try {
       const config = typeof configJson === 'string' ? JSON.parse(configJson) : configJson;
-      
+
       // 1. Apply Filters
       activeTable.setColumnFilters(config.filters || []);
-      
+
       // 2. Apply Visibility
       activeTable.setColumnVisibility(config.visibility || {});
 
@@ -39,41 +40,59 @@ export default function SidebarContent() {
   if (!mounted) return null;
 
   return (
-    <Box sx={{ p: 2, boxShadow: 2, borderRadius: 2, height: '100vh', overflowY: 'auto' }}>
-      <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 1, fontWeight: 'bold', px: 2 }}>
-        SAVED VIEWS
-      </Typography>
-      
-      <List dense>
+    <Box sx={{ height: '100%', overflowY: 'auto' }}>
+      <Box sx={{ p: 2, pb: 1 }}>
+        <Typography
+          variant="subtitle2"
+          color="textSecondary"
+          sx={{
+            fontWeight: 600,
+            letterSpacing: '0.05em',
+            fontSize: '0.7rem',
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}
+        >
+          <Filter size={14} /> Saved Views
+        </Typography>
+      </Box>
+
+      <List disablePadding>
         {savedFilters && savedFilters.length > 0 ? (
           savedFilters.map((f, index) => (
             <ListItem key={f.filter_id ?? `filter-${index}`} disablePadding>
-              <ListItemButton 
+              <ListItemButton
                 onClick={() => applyFilter(f.config_json)}
-                sx={{ 
-                  borderRadius: 1, 
-                  mb: 0.5,
-                  bgcolor: f.is_default ? 'rgba(25, 118, 210, 0.04)' : 'transparent' 
+                sx={{
+                  py: 1,
+                  px: 3,
+                  borderLeft: '3px solid transparent',
+                  '&:hover': {
+                    bgcolor: 'rgba(0,0,0,0.02)',
+                    borderLeftColor: '#e5e7eb'
+                  }
                 }}
               >
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                  <ListItemText 
-                    primary={f.filter_name} 
-                    slotProps={{ 
-                      primary: { 
-                        fontSize: '0.85rem',
-                        fontWeight: f.is_default ? 700 : 500,
-                        color: 'black' 
-                      } 
-                    }} 
+                  <ListItemText
+                    primary={f.filter_name}
+                    slotProps={{
+                      primary: {
+                        fontSize: '0.875rem',
+                        fontWeight: f.is_default ? 600 : 400,
+                        color: f.is_default ? 'text.primary' : 'text.secondary'
+                      }
+                    }}
                   />
                   {f.is_default === 1 && (
-                    <Chip 
-                      label="Default" 
-                      size="small" 
-                      color="primary" 
+                    <Chip
+                      label="Default"
+                      size="small"
+                      color="success"
                       variant="outlined"
-                      sx={{ height: 16, fontSize: '0.6rem', fontWeight: 'bold' }} 
+                      sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600 }}
                     />
                   )}
                 </Stack>
@@ -81,19 +100,27 @@ export default function SidebarContent() {
             </ListItem>
           ))
         ) : (
-          <Typography variant="body2" sx={{ px: 2, color: 'text.disabled', fontStyle: 'italic' }}>
+          <Typography variant="body2" sx={{ px: 3, pt: 1, color: 'text.disabled', fontStyle: 'italic', fontSize: '0.85rem' }}>
             No saved filters for this page
           </Typography>
         )}
       </List>
-      
-      <Divider sx={{ my: 2 }} />
-      
-      <Box sx={{ px: 2 }}>
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
-          Current Page:
+
+      <Divider sx={{ my: 2, mx: 2, opacity: 0.6 }} />
+
+      <Box sx={{ px: 3, pb: 2 }}>
+        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 0.5 }}>
+          Current Route
         </Typography>
-        <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="caption" sx={{
+          fontFamily: 'monospace',
+          bgcolor: 'rgba(0,0,0,0.03)',
+          px: 1,
+          py: 0.5,
+          borderRadius: 1,
+          display: 'block',
+          wordBreak: 'break-all'
+        }}>
           {pathname}
         </Typography>
       </Box>

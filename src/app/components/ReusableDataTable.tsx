@@ -45,9 +45,10 @@ interface ReusableTableProps {
   onDeleteRows?: (ids: any[]) => void;
   detailPagePath?: string; // Path pattern like "/inventory/[id]"
   idField?: string; // ID field name like "id" or "bin_type_id"
+  getRowStyle?: (row: any) => React.CSSProperties; // New prop for row styling
 }
 
-export default function ReusableDataTable({ data, allAvailableColumns, pageName, onCellEdit, onDeleteRows, detailPagePath, idField = "id" }: ReusableTableProps) {
+export default function ReusableDataTable({ data, allAvailableColumns, pageName, onCellEdit, onDeleteRows, detailPagePath, idField = "id", getRowStyle }: ReusableTableProps) {
   const router = useRouter();
   const [tableData, setTableData] = useState(data);
 
@@ -310,6 +311,9 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
     if (baseRoute === "jobs") {
       // This will trigger the [id] page with params.id = "new"
       router.push("/jobs/new");
+    } else if (baseRoute === "customer") {
+      // This will trigger the [id] page with params.id = "new"
+      router.push("/customers/new");
     } else {
       const pageRoute = baseRoute.replace(/\s+management/i, '');
       router.push(`/${pageRoute}/new`);
@@ -572,7 +576,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
       display: "flex",
       flexDirection: "column",
       gap: 2,
-  
+
       maxWidth: "100vw",  // Add this
       boxSizing: "border-box"
     }}>
@@ -618,7 +622,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
 
       <Paper elevation={3} sx={{ overflow: 'hidden' }}>
         <PaginationControls />
-        <TableContainer sx={{ maxHeight:700, overflowX: 600, whiteSpace: "nowrap" }}>
+        <TableContainer sx={{ maxHeight: 700, overflowX: 600, whiteSpace: "nowrap" }}>
           <Table stickyHeader size="small" sx={{ tableLayout: "fixed" }}>
             <TableHead>
               {table.getHeaderGroups().map((headerGroup: HeaderGroup<any>) => (
@@ -661,9 +665,9 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                         <TableCell key={header.id} sx={{ bgcolor: "#f8fafc", py: 1, top: 40, zIndex: 2 }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             {index === 0 && (
-                              <IconButton color="primary" onClick={handleGlobalSearch} size="small" sx={{ bgcolor: 'white', border: '1px solid #e2e8f0', fontSize: 11 }}>
+                              <Button  onClick={handleGlobalSearch}  sx={{ bgcolor: '#1ad414ff', border: '1px solid #e2e8f0', fontSize: 11, color: '#000000ff' }}>
                                 <Search fontSize="small" /> Search
-                              </IconButton>
+                              </Button>
                             )}
                             {!isSelect && (
                               columnMeta?.options ? (
@@ -782,6 +786,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                   sx={{
                     cursor: detailPagePath ? "pointer" : "default",
                     transition: "background-color 0.2s",
+                    ...(getRowStyle ? getRowStyle(row.original) : {}), // Apply custom styles here
                   }}
                 >
                   {row.getVisibleCells().map((cell: Cell<any, any>) => {
