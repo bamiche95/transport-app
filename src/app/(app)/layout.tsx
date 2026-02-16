@@ -1,9 +1,14 @@
-// src\app\(app)\layout.tsx
+// src/app/(app)/layout.tsx
+
 import Header from "@/app/components/Header";
 import Footer from "@/app/components/Footer";
+import SidebarContent from "@/app/components/SidebarContent";
 import { getUserFromJWT } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import SidebarContent from "@/app/components/SidebarContent";
+
+import { Box, Drawer, Toolbar } from "@mui/material";
+
+const drawerWidth = 240;
 
 export default async function AppLayout({
   children,
@@ -12,38 +17,61 @@ export default async function AppLayout({
 }) {
   const user = await getUserFromJWT();
 
-  if (!user) {
-    redirect("/");
-  }
+  if (!user) redirect("/");
 
   if (user.role === "Driver") {
     redirect("/driver-not-supported");
   }
 
   return (
-    <div className="flex flex-col min-h-screen" suppressHydrationWarning> {/* Ensure full height container */}
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+      }}
+      suppressHydrationWarning
+    >
+      {/* HEADER */}
       <Header user={user} />
 
-      {/* 1. Removed max-w-screeen (typo). 
-          2. added w-full to ensure it doesn't exceed the viewport.
-      */}
-      <main className="flex flex-1 w-full overflow-hidden"> 
+      {/* MAIN AREA */}
+      <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
         
-        {/* Sidebar: Use fixed width so it doesn't squish */}
-        <aside className="w-60 flex-shrink-0 bg-gray-100 border-r border-gray-200 h-screen">
+        {/* SIDEBAR */}
+        <Drawer
+          variant="permanent"
+          anchor="left"
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            [`& .MuiDrawer-paper`]: {
+              width: drawerWidth,
+              boxSizing: "border-box",
+            },
+          }}
+        >
+          <Toolbar />
           <SidebarContent />
-        </aside>
+        </Drawer>
 
-        {/* Page content: 
-            CRITICAL: 'min-w-0' is required for the child (the table) 
-            to be able to scroll horizontally instead of pushing the parent.
-        */}
-        <section className="flex-1 min-w-0 p-6 bg-white overflow-y-auto">
+        {/* PAGE CONTENT */}
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            minWidth: 0, // critical for table scrolling
+            p: 3,
+            overflowY: "auto",
+          }}
+        >
+          <Toolbar /> {/* pushes content below AppBar */}
           {children}
-        </section>
-      </main>
+        </Box>
+      </Box>
 
+      {/* FOOTER */}
       <Footer />
-    </div>
+    </Box>
   );
 }

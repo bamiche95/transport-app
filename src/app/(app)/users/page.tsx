@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import UserFormDialog from "../../components/AddNewUser";
 import { SquarePen } from "lucide-react";
+import { Typography } from "@mui/material";
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);

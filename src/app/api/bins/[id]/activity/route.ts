@@ -41,7 +41,7 @@ WHERE ba.bin_id = ?
 
 UNION ALL
 
--- 2. Get Physical Movements (Jobs)
+  -- 2. Get Physical Movements (Jobs)
 SELECT 
   'MOVEMENT' as record_type,
   bh.history_id as id,
@@ -50,8 +50,8 @@ SELECT
   bh.to_location as new_value,
   bh.moved_at as event_date,
   CONCAT(u.first_name, ' ', u.last_name) as user_name,
-  cust_from.customer_name as old_label,
-  cust_to.customer_name as new_label,
+  NULL as old_label,
+  NULL as new_label,
   NULL as old_status,
   NULL as new_status,
   -- Placeholder for Movement rows
@@ -62,8 +62,6 @@ SELECT
 FROM binhistory bh
 LEFT JOIN users u ON bh.moved_by = u.user_id
 LEFT JOIN jobs j ON bh.job_id = j.job_id
-LEFT JOIN customer cust_from ON bh.from_location = cust_from.customer_id
-LEFT JOIN customer cust_to ON bh.to_location = cust_to.customer_id
 WHERE bh.bin_id = ?
 
 ORDER BY event_date DESC

@@ -1,239 +1,238 @@
 "use client";
 
 import React, { useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  TextField,
+  Box,
+  Avatar,
+  Chip,
+  InputAdornment,
+  IconButton,
+  Stack,
+  alpha
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 
 interface Job {
-    job_id: number;
-    company_name: string;
-    job_status_name: string;
-    priority: number;
-    driver_id: number | null;
-    driver_name: string | null;
-    customer_name: string | null;
+  job_id: number;
+  company_name: string;
+  job_status_name: string;
+  priority: number;
+  driver_id: number | null;
+  driver_name: string | null;
+  customer_name: string | null;
 }
 
 interface DriverJobs {
-    driverId: number | null;
-    driverName: string;
-    jobs: Job[];
+  driverId: number | null;
+  driverName: string;
+  jobs: Job[];
 }
 
 interface DriverJobsTableProps {
-    data: DriverJobs[];
+  data: DriverJobs[];
 }
 
-const statusColors: Record<string, { bg: string; text: string }> = {
-    pending: { bg: "bg-amber-50", text: "text-amber-700" },
-    completed: { bg: "bg-emerald-50", text: "text-emerald-700" },
-    in_progress: { bg: "bg-blue-50", text: "text-blue-700" },
-    cancelled: { bg: "bg-slate-50", text: "text-slate-700" },
+// Map status names to MUI Chip colors/styles
+const getStatusStyles = (status: string) => {
+  const normalized = status.toLowerCase().replace(/\s+/g, "_");
+  switch (normalized) {
+    case 'completed': return { color: 'success' as const, label: status };
+    case 'in_progress': return { color: 'primary' as const, label: status };
+    case 'cancelled': return { color: 'default' as const, label: status };
+    default: return { color: 'warning' as const, label: status };
+  }
 };
 
 const getPriorityColor = (priority: number): string => {
-    if (priority >= 8) return "text-red-600";
-    if (priority >= 5) return "text-orange-600";
-    return "text-yellow-600";
-};
-
-const getStatusColor = (status: string) => {
-    const normalized = status.toLowerCase().replace(/\s+/g, "_");
-    return statusColors[normalized] || statusColors.pending;
+  if (priority >= 8) return "#d32f2f"; // error.main
+  if (priority >= 5) return "#ed6c02"; // warning.main
+  return "#fbc02d"; // custom yellow
 };
 
 export default function DriverJobsTable({ data }: DriverJobsTableProps) {
-    const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-    // Filter drivers based on search query
-    const filteredData = data.filter((driver) =>
-        driver.driverName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  const filteredData = data.filter((driver) =>
+    driver.driverName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-    const maxJobs = Math.max(...filteredData.map((d) => d.jobs.length), 0);
+  const maxJobs = Math.max(...filteredData.map((d) => d.jobs.length), 0);
 
-    if (!filteredData.length) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-white">
-                <div className="text-center">
-                    <div className="text-6xl mb-4">📭</div>
-                    <h3 className="text-2xl font-light text-slate-600">
-                        {searchQuery ? `No drivers found matching "${searchQuery}"` : "No jobs found"}
-                    </h3>
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery("")}
-                            className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
-                        >
-                            Clear search
-                        </button>
-                    )}
-                </div>
-            </div>
-        );
-    }
-
+  if (!filteredData.length) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-8">
-            {/* Header */}
-            <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h1 className="text-4xl font-light text-slate-900 mb-2">
-                            Driver Jobs
-                        </h1>
-                        <p className="text-slate-500 text-sm">
-                            {filteredData.length} of {data.length} drivers • {filteredData.reduce((acc, d) => acc + d.jobs.length, 0)} jobs total
-                        </p>
-                    </div>
-
-                    {/* Search Input */}
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg
-                                className="h-5 w-5 text-slate-400"
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Search drivers..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 pr-10 py-2.5 w-80 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm"
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery("")}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                            >
-                                <svg
-                                    className="h-5 w-5"
-                                    fill="none"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Table Container */}
-            <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <table className="w-full">
-                    {/* Header */}
-                    <thead>
-                        <tr className="bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700">
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-white">
-                                Driver
-                            </th>
-                            {Array.from({ length: maxJobs }).map((_, i) => (
-                                <th
-                                    key={i}
-                                    className="px-6 py-4 text-left text-sm font-semibold text-slate-200"
-                                >
-                                    <span className="text-xs uppercase tracking-wide opacity-75">
-                                        Job {i + 1}
-                                    </span>
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-
-                    {/* Body */}
-                    <tbody className="divide-y divide-slate-200">
-                        {filteredData.map((driver, driverIdx) => (
-                            <tr
-                                key={driver.driverId}
-                                className={`transition-colors duration-200 hover:bg-slate-50 ${driverIdx % 2 === 0 ? "bg-white" : "bg-slate-50"
-                                    }`}
-                            >
-                                {/* Driver Cell */}
-                                <td className="px-6 py-4 sticky left-0 z-10 bg-inherit  ">
-                                    <div className="flex items-center gap-3 ">
-                                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
-                                            {driver.driverName.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium text-slate-900 truncate">
-                                                {driver.driverName}
-                                            </p>
-                                            <p className="text-xs text-slate-500">
-                                                {driver.jobs.length} job{driver.jobs.length !== 1 ? "s" : ""}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </td>
-
-                                {/* Job Cells */}
-                                {Array.from({ length: maxJobs }).map((_, jobIdx) => {
-                                    const job = driver.jobs[jobIdx];
-                                    const colors = job ? getStatusColor(job.job_status_name) : statusColors.pending;
-
-                                    return (
-                                        <td
-                                            key={jobIdx}
-                                            className="px-6 py-4 text-sm transition-colors duration-200"
-                                        >
-                                            {job ? (
-                                                <div className="space-y-2">
-                                                    {/* Customer & Company */}
-                                                    <div>
-                                                        <p className="font-medium text-slate-900 truncate text-sm">
-                                                            {job.customer_name || "—"}
-                                                        </p>
-                                                        <p className="text-xs text-slate-500 truncate">
-                                                            {job.company_name}
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Status & Priority */}
-                                                    <div className="flex gap-2 flex-wrap">
-                                                        <span
-                                                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}
-                                                        >
-                                                            {job.job_status_name}
-                                                        </span>
-                                                        <span
-                                                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getPriorityColor(job.priority)}`}
-                                                        >
-                                                            Priority: {job.priority}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Job ID */}
-                                                    <p className="text-xs text-slate-400 font-mono">
-                                                        #{job.job_id}
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <span className="text-slate-300 text-sm">—</span>
-                                            )}
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Footer Info */}
-            <div className="mt-6 flex items-center justify-between text-xs text-slate-500">
-                <p>Showing {filteredData.length} drivers with up to {maxJobs} jobs each</p>
-                <p>Last updated: {new Date().toLocaleString()}</p>
-            </div>
-        </div>
+      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="80vh">
+        <Typography variant="h1" sx={{ mb: 2 }}>📭</Typography>
+        <Typography variant="h5" color="textSecondary" gutterBottom>
+          {searchQuery ? `No drivers found matching "${searchQuery}"` : "No jobs found"}
+        </Typography>
+        {searchQuery && (
+          <Chip 
+            label="Clear search" 
+            onClick={() => setSearchQuery("")} 
+            sx={{ mt: 2, cursor: 'pointer' }} 
+          />
+        )}
+      </Box>
     );
+  }
+
+  return (
+    <Box sx={{ p: 4, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+      {/* Header Section */}
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 4 }}>
+        <Box>
+          <Typography variant="h4" fontWeight="300" color="textPrimary">
+            Driver Jobs
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            {filteredData.length} of {data.length} drivers • {filteredData.reduce((acc, d) => acc + d.jobs.length, 0)} jobs total
+          </Typography>
+        </Box>
+
+        <TextField
+          size="small"
+          placeholder="Search drivers..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: 320, bgcolor: 'white' }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" color="disabled" />
+              </InputAdornment>
+            ),
+            endAdornment: searchQuery && (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearchQuery("")}>
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            )
+          }}
+        />
+      </Stack>
+
+      {/* Table Container */}
+      <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+        <Table sx={{ minWidth: 650 }}>
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#1e293b' }}>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Driver</TableCell>
+              {Array.from({ length: maxJobs }).map((_, i) => (
+                <TableCell key={i} sx={{ color: alpha('#fff', 0.8), fontWeight: 'bold' }}>
+                  JOB {i + 1}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredData.map((driver, index) => (
+              <TableRow 
+                key={driver.driverId} 
+                sx={{ 
+                  bgcolor: index % 2 === 0 ? 'white' : '#f8fafc',
+                  '&:hover': { bgcolor: '#f1f5f9' }
+                }}
+              >
+                {/* Driver Cell - Sticky */}
+                <TableCell 
+                  sx={{ 
+                    position: 'sticky', 
+                    left: 0, 
+                    bgcolor: 'inherit', 
+                    zIndex: 1,
+                    borderRight: '1px solid #e2e8f0'
+                  }}
+                >
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Avatar sx={{ bgcolor: 'primary.main', fontSize: '0.875rem' }}>
+                      {driver.driverName.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="subtitle2" noWrap sx={{ width: 120 }}>
+                        {driver.driverName}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {driver.jobs.length} jobs
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </TableCell>
+
+                {/* Job Cells */}
+                {Array.from({ length: maxJobs }).map((_, jobIdx) => {
+                  const job = driver.jobs[jobIdx];
+                  const statusInfo = job ? getStatusStyles(job.job_status_name) : null;
+
+                  return (
+                    <TableCell key={jobIdx} sx={{ verticalAlign: 'top', minWidth: 200 }}>
+                      {job ? (
+                        <Stack spacing={1}>
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontSize: '0.8rem' }}>
+                              {job.customer_name || "—"}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary" display="block">
+                              {job.company_name}
+                            </Typography>
+                          </Box>
+                          
+                          <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                            <Chip 
+                              label={statusInfo?.label} 
+                              color={statusInfo?.color} 
+                              size="small" 
+                              variant="filled" 
+                              sx={{ fontSize: '0.65rem', height: 20 }}
+                            />
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: getPriorityColor(job.priority), 
+                                fontWeight: 'bold',
+                                alignSelf: 'center',
+                                ml: 1
+                              }}
+                            >
+                              P: {job.priority}
+                            </Typography>
+                          </Stack>
+                          
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.disabled' }}>
+                            #{job.job_id}
+                          </Typography>
+                        </Stack>
+                      ) : (
+                        <Typography color="text.disabled">—</Typography>
+                      )}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Footer */}
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 2, px: 1 }}>
+        <Typography variant="caption" color="textSecondary">
+          Showing {filteredData.length} drivers with up to {maxJobs} jobs each
+        </Typography>
+        <Typography variant="caption" color="textSecondary">
+          Last updated: {new Date().toLocaleString()}
+        </Typography>
+      </Stack>
+    </Box>
+  );
 }

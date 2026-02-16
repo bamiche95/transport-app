@@ -122,12 +122,30 @@ export async function PATCH(
     const safeLugLock = body.lug_lock !== undefined ? (body.lug_lock ? 1 : 0) : current.lug_lock;
     const safeAdr = body.adr !== undefined ? (body.adr ? 1 : 0) : current.adr;
     const formattedDate = body.job_date ? new Date(body.job_date) : current.job_date;
+    const formattedDateTime = body.job_datetime ? new Date(body.job_datetime) : current.job_datetime;
 
     // 5. Execute Update - USING connection instead of pool
+    // 5. Update Customer Record (SYNC)
+    if (customer_id) {
+      await connection.query(
+        `UPDATE customer SET 
+           address = ?, city = ?, town = ?, postcode = ?, country = ?, 
+           contact_name = ?, phone_number = ?, sic_code = ?, company_notes = ?,
+           modified_at = NOW()
+         WHERE customer_id = ?`,
+        [
+          address, city, town, postcode, country,
+          contact_name, phone_number, sic_code, company_notes,
+          customer_id
+        ]
+      );
+    }
+
+    // 6. Execute Job Update
     await connection.query(
       `UPDATE jobs SET 
         customer_id = ?, bin_type_id = ?, company_id = ?, qty = ?, 
-        job_date = ?, company_notes = ?, job_type_id = ?, job_status_id = ?, 
+        job_date = ?, job_datetime = ?, company_notes = ?, job_type_id = ?, job_status_id = ?, 
         jobs_notes = ?, opening_times = ?, office_notes = ?, booking_portal_id = ?, 
         adr = ?, lug_lock = ?, priority = ?, phone_number = ?, 
         contact_name = ?, address = ?, postcode = ?, city = ?, 
@@ -136,7 +154,7 @@ export async function PATCH(
        WHERE job_id = ?`,
       [
         customer_id, bin_type_id, company_id, qty,
-        formattedDate, company_notes, job_type_id, job_status_id,
+        formattedDate, formattedDateTime, company_notes, job_type_id, job_status_id,
         jobs_notes, opening_times, office_notes, booking_portal_id,
         safeAdr, safeLugLock, priority, phone_number,
         contact_name, address, postcode, city,
@@ -145,62 +163,6 @@ export async function PATCH(
       ]
     );
 
-    // 6. SYNC MOVEMENTS (If qty or type changed)
-    if (qty !== current.qty || job_type_id !== current.job_type_id) {
-      const [jobTypeRows]: any = await connection.query("SELECT job_type_name FROM jobtype WHERE job_type_id = ?", [job_type_id]);
-      const typeLabel = jobTypeRows[0]?.job_type_name || "";
-
-      const needsCollect = ["Exchange", "Collect", "Relocate", "Tip And Return", "Wait and Load", "Wait & Load"].includes(typeLabel);
-      const needsDeliver = ["Exchange", "Deliver", "Relocate", "Tip And Return", "Wait and Load", "Wait & Load"].includes(typeLabel);
-
-      const [existingBins]: any = await connection.query("SELECT * FROM job_bins WHERE job_id = ?", [id]);
-      const currentCollects = existingBins.filter((b: any) => b.movement_type === 'COLLECT');
-      const currentDelivers = existingBins.filter((b: any) => b.movement_type === 'DELIVER');
-
-      const targetCount = qty || 1;
-
-      // Sync COLLECTs
-      if (needsCollect) {
-        if (currentCollects.length < targetCount) {
-          for (let i = 0; i < targetCount - currentCollects.length; i++) {
-            // ADDED 'qty' to the INSERT to prevent the error
-            await connection.query(
-              "INSERT INTO job_bins (job_id, movement_type, qty, created_at) VALUES (?, 'COLLECT', 1, NOW())",
-              [id]
-            );
-          }
-        } else if (currentCollects.length > targetCount) {
-          const toDelete = currentCollects.length - targetCount;
-          const unassigned = currentCollects.filter((b: any) => b.bin_id === null).sort((a: any, b: any) => b.job_bin_id - a.job_bin_id);
-          for (let i = 0; i < Math.min(toDelete, unassigned.length); i++) {
-            await connection.query("DELETE FROM job_bins WHERE job_bin_id = ?", [unassigned[i].job_bin_id]);
-          }
-        }
-      } else {
-        await connection.query("DELETE FROM job_bins WHERE job_id = ? AND movement_type = 'COLLECT' AND bin_id IS NULL", [id]);
-      }
-
-      // Sync DELIVERs
-      if (needsDeliver) {
-        if (currentDelivers.length < targetCount) {
-          for (let i = 0; i < targetCount - currentDelivers.length; i++) {
-            // ADDED 'qty' to the INSERT to prevent the error
-            await connection.query(
-              "INSERT INTO job_bins (job_id, movement_type, qty, created_at) VALUES (?, 'DELIVER', 1, NOW())",
-              [id]
-            );
-          }
-        } else if (currentDelivers.length > targetCount) {
-          const toDelete = currentDelivers.length - targetCount;
-          const unassigned = currentDelivers.filter((b: any) => b.bin_id === null).sort((a: any, b: any) => b.job_bin_id - a.job_bin_id);
-          for (let i = 0; i < Math.min(toDelete, unassigned.length); i++) {
-            await connection.query("DELETE FROM job_bins WHERE job_bin_id = ?", [unassigned[i].job_bin_id]);
-          }
-        }
-      } else {
-        await connection.query("DELETE FROM job_bins WHERE job_id = ? AND movement_type = 'DELIVER' AND bin_id IS NULL", [id]);
-      }
-    }
 
 
     await connection.commit();
@@ -216,7 +178,7 @@ export async function PATCH(
 
 
 
-export async function DELETE( req: NextRequest,
+export async function DELETE(req: NextRequest,
   { params }: { params: Promise<{ id: number }> }) {
   const connection = await pool.getConnection();
   try {

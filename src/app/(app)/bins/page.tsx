@@ -5,6 +5,7 @@ import ReusableDataTable from "@/app/components/ReusableDataTable";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Chip, Box, Typography } from "@mui/material";
 import { CellEditPayload } from "@/app/types/CellEditPayload";
+import CircularEnableTrack from "@/app/components/Spinner";
 type Bin = {
   bin_id: number;
   bin_number: string;
@@ -47,7 +48,7 @@ export default function BinsPage() {
     label: opt.label,
     value: opt.bin_status_id,
   }));
- 
+
   const [companyOptions, setCompanyOptions] = useState<{ company_id: number; company_name: string }[]>([])
   const normalizedCompanyOptions = companyOptions.map(opt => ({
     id: opt.company_id,
@@ -141,7 +142,7 @@ export default function BinsPage() {
         const foundOption = normalizedStatusOptions.find(
           (o) => Number(o.value) === Number(statusId)
         );
-        
+
         // Fallback to the bin_status string that came directly from the /api/bins join
         const statusLabel = foundOption?.label || rowData.bin_status_label || rowData.bin_status || "Unknown";
 
@@ -312,19 +313,19 @@ export default function BinsPage() {
 
 
 
-  if (loading) return <Box sx={{ p: 8 }}><Typography>Loading Bins...</Typography></Box>;
+  if (loading) return <Box sx={{ p: 8, display: 'flex', justifyContent: 'center', alignItems: 'center' }} ><CircularEnableTrack /></Box>;
 
   return (
     <div>
- 
+
       <ReusableDataTable
 
         data={bins}
         allAvailableColumns={columns}
         pageName="bins"
         onCellEdit={handleBinsEdit}
- detailPagePath="/bins/[id]"
-  idField="bin_id"
+        detailPagePath="/bins/[id]"
+        idField="bin_id"
       />
     </div>
   );

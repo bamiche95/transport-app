@@ -398,35 +398,35 @@ export default function BinDetailPage() {
                                     </Grid>
 
                                     {/* Status & Printed */}
-<Grid size={{ xs: 12, sm: 6 }}>
-    <Typography variant="caption" color="text.secondary" fontWeight={600}>Status</Typography>
-    {isEditing ? (
-        <TextField
-            select
-            fullWidth
-            size="small"
-            // Use an empty string if null to satisfy the Select component
-            value={editData.bin_status_id ?? ""}
-            onChange={(e) => {
-                const val = e.target.value;
-                handleInputChange("bin_status_id", val === "" ? null : Number(val));
-            }}
-            sx={{ mt: 1 }}
-        >
-            <MenuItem value=""><em>None</em></MenuItem>
-            {statusOptions.map((opt: any) => (
-                <MenuItem 
-                    key={opt.id || opt.bin_status_id} 
-                    value={opt.id !== undefined ? opt.id : opt.bin_status_id}
-                >
-                    {opt.label}
-                </MenuItem>
-            ))}
-        </TextField>
-    ) : (
-        <Typography variant="body1" mt={0.5}>{bin.bin_status_label || "—"}</Typography>
-    )}
-</Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={600}>Status</Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                // Use an empty string if null to satisfy the Select component
+                                                value={editData.bin_status_id ?? ""}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    handleInputChange("bin_status_id", val === "" ? null : Number(val));
+                                                }}
+                                                sx={{ mt: 1 }}
+                                            >
+                                                <MenuItem value=""><em>None</em></MenuItem>
+                                                {statusOptions.map((opt: any) => (
+                                                    <MenuItem
+                                                        key={opt.id || opt.bin_status_id}
+                                                        value={opt.id !== undefined ? opt.id : opt.bin_status_id}
+                                                    >
+                                                        {opt.label}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" mt={0.5}>{bin.bin_status_label || "—"}</Typography>
+                                        )}
+                                    </Grid>
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={600}>Label Printed</Typography>
                                         {isEditing ? (
@@ -491,32 +491,32 @@ export default function BinDetailPage() {
                                             <Typography variant="body1" mt={0.5}>{bin.customer_name || "—"}</Typography>
                                         )}
                                     </Grid>
-                                  <Grid size={{ xs: 12, sm: 6 }}>
-    <Typography variant="caption" color="text.secondary" fontWeight={600}>Company</Typography>
-    {isEditing ? (
-        <TextField
-            select
-            fullWidth
-            size="small"
-            // Keep as Number to match the option value type
-            value={editData.company_id ?? ""} 
-            onChange={(e) => {
-                const val = e.target.value;
-                handleInputChange("company_id", val === "" ? null : Number(val));
-            }}
-            sx={{ mt: 1 }}
-        >
-            <MenuItem value=""><em>None</em></MenuItem>
-            {companyOptions.map((opt) => (
-                <MenuItem key={opt.id} value={opt.id}>
-                    {opt.label}
-                </MenuItem>
-            ))}
-        </TextField>
-    ) : (
-        <Typography variant="body1" mt={0.5}>{bin.company_name || "—"}</Typography>
-    )}
-</Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={600}>Company</Typography>
+                                        {isEditing ? (
+                                            <TextField
+                                                select
+                                                fullWidth
+                                                size="small"
+                                                // Keep as Number to match the option value type
+                                                value={editData.company_id ?? ""}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    handleInputChange("company_id", val === "" ? null : Number(val));
+                                                }}
+                                                sx={{ mt: 1 }}
+                                            >
+                                                <MenuItem value=""><em>None</em></MenuItem>
+                                                {companyOptions.map((opt) => (
+                                                    <MenuItem key={opt.id} value={opt.id}>
+                                                        {opt.label}
+                                                    </MenuItem>
+                                                ))}
+                                            </TextField>
+                                        ) : (
+                                            <Typography variant="body1" mt={0.5}>{bin.company_name || "—"}</Typography>
+                                        )}
+                                    </Grid>
 
                                     {/* Comment (Full Width) */}
                                     <Grid size={{ xs: 12 }}>
@@ -689,24 +689,27 @@ export default function BinDetailPage() {
 
                                             // Helper to get the correct text label for the chips
                                             const getDisplayLabel = (type: 'old' | 'new') => {
-                                                if (isMovement) {
-                                                    return type === 'old' ? item.old_label : item.new_label;
-                                                }
-
                                                 const val = type === 'old' ? item.old_value : item.new_value;
+                                                const label = type === 'old' ? item.old_label : item.new_label;
+
+                                                if (isMovement) {
+                                                    return val || "Unknown Location";
+                                                }
 
                                                 switch (item.field_name) {
                                                     case 'customer_id':
-                                                        return (type === 'old' ? item.old_label : item.new_label) || "None";
+                                                        return label || val || "None";
                                                     case 'bin_status_id':
-                                                        return (type === 'old' ? item.old_status : item.new_status) || "Unknown";
+                                                        return (type === 'old' ? item.old_status : item.new_status) || val || "Unknown";
                                                     case 'company_id':
-                                                        // Logic for the newly added company mapping
-                                                        return (type === 'old' ? item.old_company : item.new_company) || "None";
+                                                        // logic for company mapping
+                                                        return (type === 'old' ? item.old_company : item.new_company) || val || "None";
                                                     case 'printed':
                                                         return val == "1" ? "Yes" : "No";
+                                                    case 'assigned_to':
+                                                        return label || val || "Not Assigned";
                                                     default:
-                                                        return val || "—";
+                                                        return label || val || "—";
                                                 }
                                             };
                                             return (

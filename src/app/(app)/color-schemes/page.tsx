@@ -92,7 +92,9 @@ export default function ColorSchemesPage() {
             <Typography variant="h4" sx={{ mb: 4, fontWeight: 300 }}>
                 Color Schemes
             </Typography>
-
+  <Typography variant="body2" sx={{ color: '#ff0808ff' }}>
+         ***Please contact the admin before making any changes as this could disrupt the system
+        </Typography>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Form Section */}
                 <div className="md:col-span-1">

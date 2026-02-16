@@ -1,8 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
+import { createTheme } from "@mui/material/styles";
 
 const theme = createTheme({
   typography: {
@@ -10,11 +9,4 @@ const theme = createTheme({
   },
 });
 
-export default function ThemeWrapper({ children }: { children: ReactNode }) {
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {children}
-    </ThemeProvider>
-  );
-}
+export { theme };

@@ -32,16 +32,16 @@ export default function UserFormDialog({ user, onUserSaved }: Props) {
 
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-const [roles, setRoles] = React.useState<string[]>([]);
+  const [roles, setRoles] = React.useState<string[]>([]);
 
-const [form, setForm] = React.useState({
-  first_name: "",
-  last_name: "",
-  username: "",
-  email: "",
-  password: "",
-  role: "Driver", // must match ENUM
-});
+  const [form, setForm] = React.useState({
+    first_name: "",
+    last_name: "",
+    username: "",
+    email: "",
+    password: "",
+    role: "Driver", // must match ENUM
+  });
 
 
 
@@ -59,17 +59,17 @@ const [form, setForm] = React.useState({
     }
   }, [user]);
 
-    React.useEffect(() => {
-  async function fetchRoles() {
-    const res = await fetch("/api/roles");
-    if (!res.ok) return;
+  React.useEffect(() => {
+    async function fetchRoles() {
+      const res = await fetch("/api/roles");
+      if (!res.ok) return;
 
-    const data = await res.json();
-    setRoles(data.roles || []);
-  }
+      const data = await res.json();
+      setRoles(data.roles || []);
+    }
 
-  fetchRoles();
-}, []);
+    fetchRoles();
+  }, []);
 
 
 
@@ -122,10 +122,10 @@ const [form, setForm] = React.useState({
         {isEditMode ? "Edit" : "Add User"}
       </Button>
 
-      <Dialog open={open}  slots={{
-          transition: Transition,
-        }}
-         >
+      <Dialog open={open} slots={{
+        transition: Transition,
+      }}
+      >
         <DialogTitle>
           {isEditMode ? "Edit User" : "Add New User"}
         </DialogTitle>
@@ -173,37 +173,34 @@ const [form, setForm] = React.useState({
               required
             />
 
-            {!isEditMode && (
-              <TextField
-  name="password"
-  label="Password"
-  type="password"
-  value={form.password}
-  onChange={handleChange}
-  fullWidth
-  margin="dense"
-  required={!isEditMode}     // ✅ key fix
-  disabled={isEditMode}     // ✅ prevent edits
-/>
+            <TextField
+              name="password"
+              label={isEditMode ? "Change Password" : "Password"}
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              fullWidth
+              margin="dense"
+              required={!isEditMode}
+              helperText={isEditMode ? "Leave blank to keep current password" : ""}
+            />
 
-            )}
-
-           <TextField
-  select
-  name="role"
-  label="Role"
-  value={form.role}
-  onChange={handleChange}
-  fullWidth
-  margin="dense"
-  required
->
-  {roles.map((role) => (
-    <MenuItem key={role} value={role}>
-      {role}
-    </MenuItem>
-  ))}
-</TextField>
+            <TextField
+              select
+              name="role"
+              label="Role"
+              value={form.role}
+              onChange={handleChange}
+              fullWidth
+              margin="dense"
+              required
+            >
+              {roles.map((role) => (
+                <MenuItem key={role} value={role}>
+                  {role}
+                </MenuItem>
+              ))}
+            </TextField>
 
           </form>
         </DialogContent>

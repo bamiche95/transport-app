@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "tw:init": "tailwindcss init -p",
+    "tw:build": "tailwindcss -i ./src/input.css -o ./dist/output.css --minify"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -14,21 +16,29 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@lottiefiles/dotlottie-react": "^0.17.15",
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
     "@mui/system": "^7.3.7",
     "@mui/x-data-grid": "^8.25.0",
     "@mui/x-date-pickers": "^8.26.0",
     "@tanstack/react-table": "^8.21.3",
+    "@types/nodemailer": "^7.0.9",
+    "axios": "^1.13.4",
     "bcrypt": "^6.0.0",
     "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
     "jose": "^6.1.3",
     "jsonwebtoken": "^9.0.3",
+    "jspdf": "^4.0.0",
+    "jspdf-autotable": "^5.0.7",
+    "lightningcss": "^1.31.1",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.562.0",
     "mysql2": "^3.16.0",
     "mysql2-promise": "^0.1.4",
     "next": "16.1.1",
+    "nodemailer": "^7.0.13",
     "react": "19.2.3",
     "react-barcode": "^1.6.1",
     "react-dom": "19.2.3",
@@ -38,7 +48,7 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.1.18",
     "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.29",
@@ -46,7 +56,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5"
   }
 }

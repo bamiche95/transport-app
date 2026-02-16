@@ -46,9 +46,10 @@ interface ReusableTableProps {
   detailPagePath?: string; // Path pattern like "/inventory/[id]"
   idField?: string; // ID field name like "id" or "bin_type_id"
   getRowStyle?: (row: any) => React.CSSProperties; // New prop for row styling
+  hideAddButton?: boolean; // Hide the default Add button
 }
 
-export default function ReusableDataTable({ data, allAvailableColumns, pageName, onCellEdit, onDeleteRows, detailPagePath, idField = "id", getRowStyle }: ReusableTableProps) {
+export default function ReusableDataTable({ data, allAvailableColumns, pageName, onCellEdit, onDeleteRows, detailPagePath, idField = "id", getRowStyle, hideAddButton = false }: ReusableTableProps) {
   const router = useRouter();
   const [tableData, setTableData] = useState(data);
 
@@ -277,7 +278,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
       const res = await fetch(`/api/tabledeleterows`, {
         method: "POST", // generic delete endpoint
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ table: entityName, ids: selectedRowIds, idField: 'bin_type_id' }),
+        body: JSON.stringify({ table: entityName, ids: selectedRowIds, idField: idField.trim() }),
       });
 
       if (!res.ok) throw new Error("Failed to delete rows");
@@ -608,9 +609,11 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
 
         <Stack direction="row" spacing={2} alignItems="center">
 
-          <Button startIcon={<AddCircleIcon />} variant="contained" onClick={() => handleAdd()}>
-            Add {pageName}
-          </Button>
+          {!hideAddButton && (
+            <Button startIcon={<AddCircleIcon />} variant="contained" onClick={() => handleAdd()}>
+              Add {pageName}
+            </Button>
+          )}
 
           <Button variant="outlined" startIcon={<FilterList />} onClick={() => setSidebarOpen(true)}>
             Layout & Views
@@ -622,7 +625,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
 
       <Paper elevation={3} sx={{ overflow: 'hidden' }}>
         <PaginationControls />
-        <TableContainer sx={{ maxHeight: 700, overflowX: 600, whiteSpace: "nowrap" }}>
+        <TableContainer sx={{ maxHeight: 650, overflowX: 600, whiteSpace: "nowrap" }}>
           <Table stickyHeader size="small" sx={{ tableLayout: "fixed" }}>
             <TableHead>
               {table.getHeaderGroups().map((headerGroup: HeaderGroup<any>) => (
@@ -665,7 +668,7 @@ export default function ReusableDataTable({ data, allAvailableColumns, pageName,
                         <TableCell key={header.id} sx={{ bgcolor: "#f8fafc", py: 1, top: 40, zIndex: 2 }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             {index === 0 && (
-                              <Button  onClick={handleGlobalSearch}  sx={{ bgcolor: '#1ad414ff', border: '1px solid #e2e8f0', fontSize: 11, color: '#000000ff' }}>
+                              <Button onClick={handleGlobalSearch} sx={{ bgcolor: '#1ad414ff', border: '1px solid #e2e8f0', fontSize: 11, color: '#000000ff' }}>
                                 <Search fontSize="small" /> Search
                               </Button>
                             )}

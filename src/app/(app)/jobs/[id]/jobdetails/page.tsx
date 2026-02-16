@@ -74,7 +74,7 @@ interface JobDetail {
     assigned_to: number | null;
     assigned_to_label: string | null;
     bins?: Bin[];
-    
+
 }
 
 // Using any for the column helper to avoid complex TanStack type errors in this specific UI context
@@ -103,7 +103,7 @@ export default function JobDetailPage() {
         customers: any[];
         users: any[];
         jobStatus: any[];
-      
+
         priorities: any[];
     }>({
         binTypes: [],
@@ -114,7 +114,7 @@ export default function JobDetailPage() {
         users: [],
         jobStatus: [],
         priorities: [],
-       
+
     });
 
     const [isSearchingCust, setIsSearchingCust] = useState(false);
@@ -218,7 +218,7 @@ export default function JobDetailPage() {
         } catch (err) {
             console.error(err);
         }
-    };  
+    };
 
     const handleUpdate = async (field: string, value: any, label?: string) => {
         try {
@@ -276,10 +276,12 @@ export default function JobDetailPage() {
         onSearch?: (query: string) => void;
         isSearching?: boolean;
         displayValue?: string;
+        multiline?: boolean;
+        rows?: number;
     }
 
     const EditableField: React.FC<EditableFieldProps> = ({
-        label, value, field, type = 'text', optionsList = [], onSearch, isSearching, displayValue
+        label, value, field, type = 'text', optionsList = [], onSearch, isSearching, displayValue, multiline, rows
     }) => {
         const [isEditing, setIsEditing] = useState(false);
         const [tempValue, setTempValue] = useState(value);
@@ -357,48 +359,48 @@ export default function JobDetailPage() {
                     />
                 );
             }
-           // Inside EditableField component -> renderInput function
+            // Inside EditableField component -> renderInput function
 
-if (type === 'multiline') {
-    return (
-        <TextField
-            fullWidth size="small" multiline rows={3}
-            value={tempValue ?? ""}
-            onChange={(e) => setTempValue(e.target.value)}
-            // Add this to allow saving with Ctrl+Enter or similar
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    handleSave();
-                }
-            }}
-            autoFocus
-        />
-    );
-}
-
-return (
-    <TextField
-        fullWidth size="small"
-        type={type === 'number' ? 'number' : 'text'}
-        value={tempValue ?? ""}
-        onChange={(e) => setTempValue(type === 'number' ? Number(e.target.value) : e.target.value)}
-        // Trigger save when user presses Enter
-        onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-                handleSave();
+            if (type === 'multiline') {
+                return (
+                    <TextField
+                        fullWidth size="small" multiline={multiline ?? true} rows={rows ?? 3}
+                        value={tempValue ?? ""}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        // Add this to allow saving with Ctrl+Enter or similar
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                handleSave();
+                            }
+                        }}
+                        autoFocus
+                    />
+                );
             }
-        }}
-        autoFocus
-        onBlur={() => {
-        // Only save if the value actually changed to avoid redundant API calls
-        if (tempValue !== value) {
-            handleSave();
-        } else {
-            setIsEditing(false);
-        }
-    }}
-    />
-);
+
+            return (
+                <TextField
+                    fullWidth size="small"
+                    type={type === 'number' ? 'number' : 'text'}
+                    value={tempValue ?? ""}
+                    onChange={(e) => setTempValue(type === 'number' ? Number(e.target.value) : e.target.value)}
+                    // Trigger save when user presses Enter
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            handleSave();
+                        }
+                    }}
+                    autoFocus
+                    onBlur={() => {
+                        // Only save if the value actually changed to avoid redundant API calls
+                        if (tempValue !== value) {
+                            handleSave();
+                        } else {
+                            setIsEditing(false);
+                        }
+                    }}
+                />
+            );
         };
 
         if (type === 'toggle') {
@@ -413,40 +415,40 @@ return (
                 />
             );
         }
-if (isEditing) {
-    return (
-        <Box>
-            <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
-            <Stack direction="row" spacing={1} alignItems="center" mt={0.5}>
-                {renderInput()}
-                {updating ? (
-                    <CircularProgress size={20} />
-                ) : (
-                    <Stack direction="row">
-                        {/* 1. Ensure mousedown is used to beat the blur event */}
-                        <IconButton 
-                            size="small" 
-                            color="primary" 
-                            onMouseDown={(e) => {
-                                e.preventDefault(); // Prevents focus from leaving input before save
-                                handleSave();
-                            }}
-                        >
-                            <CheckIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => setIsEditing(false)}
-                        >
-                            <CloseIcon fontSize="small" />
-                        </IconButton>
+        if (isEditing) {
+            return (
+                <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
+                    <Stack direction="row" spacing={1} alignItems="center" mt={0.5}>
+                        {renderInput()}
+                        {updating ? (
+                            <CircularProgress size={20} />
+                        ) : (
+                            <Stack direction="row">
+                                {/* 1. Ensure mousedown is used to beat the blur event */}
+                                <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault(); // Prevents focus from leaving input before save
+                                        handleSave();
+                                    }}
+                                >
+                                    <CheckIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => setIsEditing(false)}
+                                >
+                                    <CloseIcon fontSize="small" />
+                                </IconButton>
+                            </Stack>
+                        )}
                     </Stack>
-                )}
-            </Stack>
-        </Box>
-    );
-}
+                </Box>
+            );
+        }
 
         return (
             <Box
@@ -534,15 +536,15 @@ if (isEditing) {
                     sx={{ bgcolor: "#f8fafc", borderBottom: "1px solid #e2e8f0", marginRight: 2 }}
                     action={
                         <>
-                        <Button
-                            startIcon={<EditIcon />}
-                            variant="contained"
-                            onClick={() => router.push(`/jobs/${id}`)}
-                            sx={{ marginRight: 2 }}
-                        >
-                            Edit Job
-                        </Button>
-                        <ScheduleJob job={job} />
+                            <Button
+                                startIcon={<EditIcon />}
+                                variant="contained"
+                                onClick={() => router.push(`/jobs/${id}`)}
+                                sx={{ marginRight: 2 }}
+                            >
+                                Edit Job
+                            </Button>
+                            <ScheduleJob job={job} />
 
                         </>
                     }
@@ -564,7 +566,9 @@ if (isEditing) {
                                 <Typography variant="h6" color="primary" gutterBottom>Job Information</Typography>
                                 <Divider sx={{ mb: 2 }} />
                             </Grid>
-
+                            <Grid size={{ xs: 12, sm: 4 }}>
+                                <EditableField label="Job Notes" value={job.jobs_notes} field="jobs_notes" type="multiline" multiline rows={10} />
+                            </Grid>
                             <Grid size={{ xs: 12, sm: 4 }}>
                                 <EditableField
                                     label="Customer"
@@ -699,9 +703,7 @@ if (isEditing) {
                                 </Stack>
                             </Grid>
 
-                            <Grid size={{ xs: 12 }}>
-                                <EditableField label="Job Notes" value={job.jobs_notes} field="jobs_notes" type="multiline" />
-                            </Grid>
+
 
                             <Grid size={{ xs: 12 }}>
                                 <EditableField label="Office Notes" value={job.office_notes} field="office_notes" type="multiline" />

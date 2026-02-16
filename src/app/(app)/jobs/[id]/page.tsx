@@ -50,6 +50,7 @@ interface JobForm {
     booking_portal_id: string; // Stored as string, number input
     waste_type_id: number | null;
     town: string;
+    country: string;
 }
 
 const INITIAL_FORM: JobForm = {
@@ -75,7 +76,8 @@ const INITIAL_FORM: JobForm = {
     adr: false,
     booking_portal_id: "",
     waste_type_id: null,
-    town: ""
+    town: "",
+    country: ""
 };
 
 export default function UniversalJobPage() {
@@ -93,26 +95,26 @@ export default function UniversalJobPage() {
 
     // NEW: Control the editability of the page
     // If it's a NEW job, start in editing mode. If it's an existing ID, start in view mode.
- 
-const [jobTypes, setJobTypes] = useState<any[]>([]);
 
-useEffect(() => {
-  fetch("/api/jobs/job_typeforBins")
-    .then(res => res.json())
-    .then(data => {
-      setJobTypes(data);
-    });
-}, []);
+    const [jobTypes, setJobTypes] = useState<any[]>([]);
 
-// Update the state type at the top
-const [binAssignments, setBinAssignments] = useState<{
-    job_bin_id_collect?: number; // Added
-    job_bin_id_deliver?: number; // Added
-    collectBinNo: string;
-    deliverBinNo: string;
-    collectValid?: boolean | 'checking';
-    deliverValid?: boolean | 'checking';
-}[]>([]);
+    useEffect(() => {
+        fetch("/api/jobs/job_typeforBins")
+            .then(res => res.json())
+            .then(data => {
+                setJobTypes(data);
+            });
+    }, []);
+
+    // Update the state type at the top
+    const [binAssignments, setBinAssignments] = useState<{
+        job_bin_id_collect?: number; // Added
+        job_bin_id_deliver?: number; // Added
+        collectBinNo: string;
+        deliverBinNo: string;
+        collectValid?: boolean | 'checking';
+        deliverValid?: boolean | 'checking';
+    }[]>([]);
 
 
     // Inside NewJobPage component, near your other useState hooks
@@ -138,29 +140,29 @@ const [binAssignments, setBinAssignments] = useState<{
     const isInitialMount = React.useRef(true);
 
     // 2. Update the Effect
- useEffect(() => {
-  if (isEdit && isInitialMount.current) {
-    if (!pageLoading) isInitialMount.current = false;
-    return;
-  }
+    useEffect(() => {
+        if (isEdit && isInitialMount.current) {
+            if (!pageLoading) isInitialMount.current = false;
+            return;
+        }
 
-  setBinAssignments(prev => {
-    const next = [...prev];
+        setBinAssignments(prev => {
+            const next = [...prev];
 
-    // Add missing rows
-    while (next.length < (formData.qty || 0)) {
-      next.push({
-        collectBinNo: '',
-        deliverBinNo: '',
-        collectValid: undefined,
-        deliverValid: undefined
-      });
-    }
+            // Add missing rows
+            while (next.length < (formData.qty || 0)) {
+                next.push({
+                    collectBinNo: '',
+                    deliverBinNo: '',
+                    collectValid: undefined,
+                    deliverValid: undefined
+                });
+            }
 
-    // Trim excess rows
-    return next.slice(0, formData.qty || 0);
-  });
-}, [formData.qty]);
+            // Trim excess rows
+            return next.slice(0, formData.qty || 0);
+        });
+    }, [formData.qty]);
 
     const validateBinNumber = async (index: number, field: 'collect' | 'deliver', value: string) => {
         if (!value) {
@@ -193,30 +195,30 @@ const [binAssignments, setBinAssignments] = useState<{
         }
     };
     // Map your database Job Type IDs to UI requirements
-const getJobTypeConfig = (jobTypeId: number | null) => {
-  if (!jobTypeId) {
-    return { showCollect: false, showDeliver: false, singleBinOnly: false };
-  }
+    const getJobTypeConfig = (jobTypeId: number | null) => {
+        if (!jobTypeId) {
+            return { showCollect: false, showDeliver: false, singleBinOnly: false };
+        }
 
-  const jobType = jobTypes.find(jt => jt.id === jobTypeId);
+        const jobType = jobTypes.find(jt => jt.id === jobTypeId);
 
-  return {
-    showCollect: jobType?.allows_collect === 1,
-    showDeliver: jobType?.allows_deliver === 1,
-    singleBinOnly: ['Tip And Return','Relocate','Transport','Wait and Load'].includes(jobType?.label || ''),
-    label: jobType?.label
-  };
-};
-
-
+        return {
+            showCollect: jobType?.allows_collect === 1,
+            showDeliver: jobType?.allows_deliver === 1,
+            singleBinOnly: ['Tip And Return', 'Relocate', 'Transport', 'Wait and Load'].includes(jobType?.label || ''),
+            label: jobType?.label
+        };
+    };
 
 
 
-const config = getJobTypeConfig(formData.job_type_id);
-const isInspection =
-  config.label === "Inspection/Repair";
-const hasNoMovement =
-  !config.showCollect && !config.showDeliver;
+
+
+    const config = getJobTypeConfig(formData.job_type_id);
+    const isInspection =
+        config.label === "Inspection/Repair";
+    const hasNoMovement =
+        !config.showCollect && !config.showDeliver;
 
 
     const handleBinChange = (index: number, field: 'collectBinNo' | 'deliverBinNo', value: string) => {
@@ -240,6 +242,38 @@ const hasNoMovement =
         setSelectedTableBinId(binId);
         window.scrollTo({ top: 100, behavior: 'smooth' });
     };
+    // Fetch customer details and prefill Location & Details fields
+    useEffect(() => {
+        const fetchCustomerData = async () => {
+            if (!formData.customer_id || isEdit) return; // Only prefill for new jobs
+
+            try {
+                const res = await fetch(`/api/customers/${formData.customer_id}`);
+                if (res.ok) {
+                    const customer = await res.json();
+
+                    // Prefill Location & Details fields from customer data
+                    setFormData(prev => ({
+                        ...prev,
+                        address: customer.address || prev.address,
+                        city: customer.city || prev.city,
+                        town: customer.town || prev.town,
+                        postcode: customer.postcode || prev.postcode,
+                        country: customer.country || prev.country,
+                        contact_name: customer.contact_name || prev.contact_name,
+                        phone_number: customer.phone_number || prev.phone_number,
+                        sic_code: customer.sic_code || prev.sic_code,
+                        company_notes: customer.company_notes || prev.company_notes
+                    }));
+                }
+            } catch (err) {
+                console.error("Failed to fetch customer details", err);
+            }
+        };
+
+        fetchCustomerData();
+    }, [formData.customer_id, isEdit]);
+
     // Fetch bins when customer changes
     useEffect(() => {
         const fetchBins = async () => {
@@ -287,56 +321,56 @@ const hasNoMovement =
                 setPriorityOptions(optionsData.priorities || []);
 
                 // 2. ONLY fetch job data if we are editing
-  if (isEdit) {
-    const jobRes = await fetch(`/api/jobs/${id}`);
-    if (jobRes.ok) {
-        const { jobData, movements } = await jobRes.json();
+                if (isEdit) {
+                    const jobRes = await fetch(`/api/jobs/${id}`);
+                    if (jobRes.ok) {
+                        const { jobData, movements } = await jobRes.json();
 
-        // 1. Inject the specific labels from the API into the dropdown options
-        setOptions(prev => ({
-            ...prev,
-            customers: jobData.customer_id ? 
-                [{ id: jobData.customer_id, label: jobData.customer_label }, ...prev.customers] : prev.customers,
-            users: jobData.assigned_to ? 
-                [{ id: jobData.assigned_to, label: jobData.assigned_to_label }, ...prev.users] : prev.users,
-        }));
+                        // 1. Inject the specific labels from the API into the dropdown options
+                        setOptions(prev => ({
+                            ...prev,
+                            customers: jobData.customer_id ?
+                                [{ id: jobData.customer_id, label: jobData.customer_label }, ...prev.customers] : prev.customers,
+                            users: jobData.assigned_to ?
+                                [{ id: jobData.assigned_to, label: jobData.assigned_to_label }, ...prev.users] : prev.users,
+                        }));
 
-        // 2. Map the jobData to your Form State
-        // Ensure the ID keys match (e.g., your DB has 'job_id' but INITIAL_FORM doesn't)
-        setFormData({
-            ...INITIAL_FORM,
-            ...jobData,
-            // Ensure the date format works for <input type="datetime-local">
-            job_date: jobData.job_date 
-                ? new Date(jobData.job_date).toISOString().slice(0, 16) 
-                : INITIAL_FORM.job_date,
-            // Handle notes specifically if they come back as null from DB
-            job_notes: jobData.job_notes ?? "",
-        });
+                        // 2. Map the jobData to your Form State
+                        // Ensure the ID keys match (e.g., your DB has 'job_id' but INITIAL_FORM doesn't)
+                        setFormData({
+                            ...INITIAL_FORM,
+                            ...jobData,
+                            // Ensure the date format works for <input type="datetime-local">
+                            job_date: jobData.job_date
+                                ? new Date(jobData.job_date).toISOString().slice(0, 16)
+                                : INITIAL_FORM.job_date,
+                            // Handle notes specifically if they come back as null from DB
+                            job_notes: jobData.job_notes ?? "",
+                        });
 
-        // 3. Populate Bin Assignments from movements
-       if (movements && Array.isArray(movements)) {
-    const rows: any[] = [];
-    
-    // We loop based on the qty (which determines the number of rows)
-    for (let i = 0; i < jobData.qty; i++) {
-        // Find the movements for this "pair" (index)
-        const collectMove = movements.filter(m => m.movement_type === 'COLLECT')[i];
-        const deliverMove = movements.filter(m => m.movement_type === 'DELIVER')[i];
+                        // 3. Populate Bin Assignments from movements
+                        if (movements && Array.isArray(movements)) {
+                            const rows: any[] = [];
 
-        rows.push({
-            job_bin_id_collect: collectMove?.job_bin_id || undefined,
-            job_bin_id_deliver: deliverMove?.job_bin_id || undefined,
-            collectBinNo: collectMove?.bin_number || "",
-            deliverBinNo: deliverMove?.bin_number || "",
-            collectValid: collectMove?.bin_number ? true : undefined,
-            deliverValid: deliverMove?.bin_number ? true : undefined
-        });
-    }
-    setBinAssignments(rows);
-}
-    }
-} else {
+                            // We loop based on the qty (which determines the number of rows)
+                            for (let i = 0; i < jobData.qty; i++) {
+                                // Find the movements for this "pair" (index)
+                                const collectMove = movements.filter(m => m.movement_type === 'COLLECT')[i];
+                                const deliverMove = movements.filter(m => m.movement_type === 'DELIVER')[i];
+
+                                rows.push({
+                                    job_bin_id_collect: collectMove?.job_bin_id || undefined,
+                                    job_bin_id_deliver: deliverMove?.job_bin_id || undefined,
+                                    collectBinNo: collectMove?.bin_number || "",
+                                    deliverBinNo: deliverMove?.bin_number || "",
+                                    collectValid: collectMove?.bin_number ? true : undefined,
+                                    deliverValid: deliverMove?.bin_number ? true : undefined
+                                });
+                            }
+                            setBinAssignments(rows);
+                        }
+                    }
+                } else {
                     // If it's a NEW job, we are done loading immediately 
                     // after the dropdown options are in.
                     setPageLoading(false);
@@ -364,10 +398,28 @@ const hasNoMovement =
             const res = await fetch(`/api/jobs/form-data?q=${encodeURIComponent(query)}`);
             if (res.ok) {
                 const data = await res.json();
-                setOptions(prev => ({
-                    ...prev,
-                    [field === 'customer' ? 'customers' : 'users']: field === 'customer' ? data.customers : data.users
-                }));
+
+                // Preserve currently selected item in the list
+                setOptions(prev => {
+                    let newItems = field === 'customer' ? data.customers : data.users;
+                    const selectedId = field === 'customer' ? formData.customer_id : formData.assigned_to;
+                    const currentList = field === 'customer' ? prev.customers : prev.users;
+
+                    // If there's a selected item and it's not in the new results, add it
+                    if (selectedId) {
+                        const selectedItem = currentList.find(item => item.id === selectedId);
+                        const isInNewResults = newItems.some((item: any) => item.id === selectedId);
+
+                        if (selectedItem && !isInNewResults) {
+                            newItems = [selectedItem, ...newItems];
+                        }
+                    }
+
+                    return {
+                        ...prev,
+                        [field === 'customer' ? 'customers' : 'users']: newItems
+                    };
+                });
             }
         } catch (err) {
             console.error(err);
@@ -390,103 +442,103 @@ const hasNoMovement =
         }
     };
 
-const handleSubmit = async () => {
-  // 1️⃣ Validate bin numbers
-  const hasInvalidBins = binAssignments.some(b =>
-    (config.showCollect && b.collectBinNo && b.collectValid === false) ||
-    (config.showDeliver && b.deliverBinNo && b.deliverValid === false)
-  );
+    const handleSubmit = async () => {
+        // 1️⃣ Validate bin numbers
+        const hasInvalidBins = binAssignments.some(b =>
+            (config.showCollect && b.collectBinNo && b.collectValid === false) ||
+            (config.showDeliver && b.deliverBinNo && b.deliverValid === false)
+        );
 
-  if (hasInvalidBins) {
-    setError("One or more bin numbers are invalid. Please check the red fields.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    return;
-  }
+        if (hasInvalidBins) {
+            setError("One or more bin numbers are invalid. Please check the red fields.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            return;
+        }
 
-  // 2️⃣ Basic job validation
-  if (!formData.customer_id || !formData.bin_type_id || !formData.company_id || !formData.job_type_id || !formData.job_status_id) {
-    setError("Please fill in all required fields.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    return;
-  }
+        // 2️⃣ Basic job validation
+        if (!formData.customer_id || !formData.bin_type_id || !formData.company_id || !formData.job_type_id || !formData.job_status_id) {
+            setError("Please fill in all required fields.");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            return;
+        }
 
-  setLoading(true);
-  setError(null);
+        setLoading(true);
+        setError(null);
 
-  try {
-    let jobId: number;
+        try {
+            let jobId: number;
 
-    if (isEdit) {
-      // 3️⃣ Update existing job
-      const patchRes = await fetch(`/api/jobs/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+            if (isEdit) {
+                // 3️⃣ Update existing job
+                const patchRes = await fetch(`/api/jobs/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(formData),
+                });
 
-      if (!patchRes.ok) {
-        const data = await patchRes.json();
-        throw new Error(data.error || "Failed to update job details");
-      }
+                if (!patchRes.ok) {
+                    const data = await patchRes.json();
+                    throw new Error(data.error || "Failed to update job details");
+                }
 
-      jobId = Number(id);
-    } else {
-      // 3️⃣ Create new job
-      const postRes = await fetch(`/api/jobs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+                jobId = Number(id);
+            } else {
+                // 3️⃣ Create new job
+                const postRes = await fetch(`/api/jobs`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(formData),
+                });
 
-      if (!postRes.ok) {
-        const data = await postRes.json();
-        throw new Error(data.error || "Failed to create job");
-      }
+                if (!postRes.ok) {
+                    const data = await postRes.json();
+                    throw new Error(data.error || "Failed to create job");
+                }
 
-      const data = await postRes.json();
-      jobId = data.jobId; // Use the newly created job ID
-    }
+                const data = await postRes.json();
+                jobId = data.jobId; // Use the newly created job ID
+            }
 
-    // 4️⃣ POST to execute bin workflow
-    const binPayload = {
-      collect_numbers: binAssignments
-        .filter(b => b.collectBinNo)
-        .map(b => ({
-          job_bin_id: b.job_bin_id_collect,
-          bin_number: b.collectBinNo
-        })),
-      deliver_numbers: binAssignments
-        .filter(b => b.deliverBinNo)
-        .map(b => ({
-          job_bin_id: b.job_bin_id_deliver,
-          bin_number: b.deliverBinNo
-        }))
+            // 4️⃣ POST to execute bin workflow
+            const binPayload = {
+                collect_numbers: binAssignments
+                    .filter(b => b.collectBinNo)
+                    .map(b => ({
+                        job_bin_id: b.job_bin_id_collect,
+                        bin_number: b.collectBinNo
+                    })),
+                deliver_numbers: binAssignments
+                    .filter(b => b.deliverBinNo)
+                    .map(b => ({
+                        job_bin_id: b.job_bin_id_deliver,
+                        bin_number: b.deliverBinNo
+                    }))
+            };
+
+            if (binPayload.collect_numbers.length || binPayload.deliver_numbers.length) {
+                const binRes = await fetch(`/api/jobs/${jobId}/execute`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(binPayload),
+                });
+
+                if (!binRes.ok) {
+                    const data = await binRes.json();
+                    throw new Error(data.error || "Failed to update bin assignments");
+                }
+            }
+
+            // 5️⃣ Redirect to jobs page
+            router.push(`/jobs`);
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message);
+            console.error(err);
+            toast.error(err.message);
+        } finally {
+            setLoading(false);
+        }
     };
-
-    if (binPayload.collect_numbers.length || binPayload.deliver_numbers.length) {
-      const binRes = await fetch(`/api/jobs/${jobId}/execute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(binPayload),
-      });
-
-      if (!binRes.ok) {
-        const data = await binRes.json();
-        throw new Error(data.error || "Failed to update bin assignments");
-      }
-    }
-
-    // 5️⃣ Redirect to jobs page
-    router.push(`/jobs`);
-    router.refresh();
-  } catch (err: any) {
-    setError(err.message);
-    console.error(err);
-    toast.error(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
 
 
     if (pageLoading) {
@@ -517,30 +569,30 @@ const handleSubmit = async () => {
                                         fullWidth label="Job Notes" variant="outlined"
                                         value={formData.jobs_notes || ""}
                                         onChange={(e) => handleInputChange("jobs_notes", e.target.value)}
-                                        multiline rows={2}
+                                        multiline rows={10}
                                     />
                                 </Grid>
 
                                 {/* Customer Search */}
                                 <Grid size={{ xs: 12, sm: 6 }}>
-                       <Autocomplete
-    // Force the value to find the object in the options array
-    value={options.customers.find((c) => c.id === formData.customer_id) || null}
-    options={options.customers}
-    getOptionLabel={(option) => option.label || ""}
-    isOptionEqualToValue={(option, value) => option.id === value.id}
-    loading={isSearchingCust}
-    onInputChange={(e, val) => handleSearch('customer', val)}
-    onChange={(e, val) => handleInputChange("customer_id", val?.id || null)}
-    renderInput={(params) => (
-        <TextField
-            {...params}
-            label="Customer *"
-            fullWidth
-            required
-        />
-    )}
-/>
+                                    <Autocomplete
+                                        // Force the value to find the object in the options array
+                                        value={options.customers.find((c) => c.id === formData.customer_id) || null}
+                                        options={options.customers}
+                                        getOptionLabel={(option) => option.label || ""}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        loading={isSearchingCust}
+                                        onInputChange={(e, val) => handleSearch('customer', val)}
+                                        onChange={(e, val) => handleInputChange("customer_id", val?.id || null)}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Customer *"
+                                                fullWidth
+                                                required
+                                            />
+                                        )}
+                                    />
                                 </Grid>
 
                                 {/* Bin Type Search */}
@@ -587,14 +639,7 @@ const handleSubmit = async () => {
                                     </TextField>
                                 </Grid>
 
-                                {/* Company Notes */}
-                                <Grid size={{ xs: 12 }}>
-                                    <TextField
-                                        fullWidth label="Company Notes"
-                                        value={formData.company_notes}
-                                        onChange={(e) => handleInputChange("company_notes", e.target.value)}
-                                    />
-                                </Grid>
+
 
                                 {/* Date */}
                                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -606,14 +651,6 @@ const handleSubmit = async () => {
                                     />
                                 </Grid>
 
-                                {/* Contact Name */}
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <TextField
-                                        fullWidth label="Contact Name"
-                                        value={formData.contact_name}
-                                        onChange={(e) => handleInputChange("contact_name", e.target.value)}
-                                    />
-                                </Grid>
 
                                 {/* Job Type Select */}
                                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -648,31 +685,37 @@ const handleSubmit = async () => {
                                         ))}
                                     </TextField>
                                 </Grid>
-                            </Grid>
 
-                            <Divider sx={{ my: 3 }} />
-
-                            <Typography variant="h6" gutterBottom color="primary">Location & Details</Typography>
-                            <Grid container spacing={2}>
-                                {/* SIC Code */}
                                 <Grid size={{ xs: 6 }}>
                                     <TextField
-                                        fullWidth label="SIC Code"
-                                        value={formData.sic_code}
-                                        onChange={(e) => handleInputChange("sic_code", e.target.value)}
-                                    />
+                                        select
+                                        label="Priority"
+                                        fullWidth
+                                        value={formData.priority}
+                                        onChange={(e) => handleInputChange("priority", e.target.value)}
+                                    >
+                                        {priorityOptions.map((p) => (
+                                            <MenuItem key={p.value} value={p.value}>
+                                                {p.label}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
                                 </Grid>
 
-                                {/* Assigned To Search */}
                                 <Grid size={{ xs: 6 }}>
-                                <Autocomplete
-    options={options.users}
-    // Match the ID from formData to the object in options
-    value={options.users.find((u) => u.id === formData.assigned_to) || null}
-    getOptionLabel={(option) => (typeof option === 'string' ? option : option.label || "")}
-    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    <Autocomplete
+                                        options={options.users}
+                                        // Match the ID from formData to the object in options
+                                        value={options.users.find((u) => u.id === formData.assigned_to) || null}
+                                        getOptionLabel={(option) => (typeof option === 'string' ? option : option.label || "")}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
                                         loading={isSearchingUser}
-                                        onInputChange={(e, val) => handleSearch('user', val)}
+                                        onInputChange={(e, val, reason) => {
+                                            // Only search when user is typing, not when selecting
+                                            if (reason === 'input') {
+                                                handleSearch('user', val);
+                                            }
+                                        }}
                                         onChange={(e, val) => handleInputChange("assigned_to", typeof val === 'string' ? null : val?.id || null)}
                                         renderInput={(params) => (
                                             <TextField
@@ -694,32 +737,43 @@ const handleSubmit = async () => {
                                         )}
                                     />
                                 </Grid>
+                            </Grid>
+                            {/* Priority */}
 
-                                {/* Priority */}
+                            <Divider sx={{ my: 3 }} />
+
+                            <Typography variant="h6" gutterBottom color="primary">Location & Details</Typography>
+                            <Grid container spacing={2}>
+                                {/* SIC Code */}
                                 <Grid size={{ xs: 6 }}>
                                     <TextField
-                                        select
-                                        label="Priority"
-                                        fullWidth
-                                        value={formData.priority}
-                                        onChange={(e) => handleInputChange("priority", e.target.value)}
-                                    >
-                                        {priorityOptions.map((p) => (
-                                            <MenuItem key={p.value} value={p.value}>
-                                                {p.label}
-                                            </MenuItem>
-                                        ))}
-                                    </TextField>
-                                </Grid>
-
-                                {/* Booking Portal ID */}
-                                <Grid size={{ xs: 6 }}>
-                                    <TextField
-                                        label="Booking Portal ID" type="number" fullWidth
-                                        value={formData.booking_portal_id}
-                                        onChange={(e) => handleInputChange("booking_portal_id", e.target.value)}
+                                        fullWidth label="SIC Code"
+                                        value={formData.sic_code}
+                                        onChange={(e) => handleInputChange("sic_code", e.target.value)}
                                     />
                                 </Grid>
+
+                                {/* Contact Name */}
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        fullWidth label="Contact Name"
+                                        value={formData.contact_name}
+                                        onChange={(e) => handleInputChange("contact_name", e.target.value)}
+                                    />
+                                </Grid>
+                                {/* Assigned To Search */}
+
+                                {/* Company Notes */}
+                                <Grid size={{ xs: 12 }}>
+                                    <TextField
+                                        fullWidth label="Company Notes"
+                                        value={formData.company_notes}
+                                        onChange={(e) => handleInputChange("company_notes", e.target.value)}
+                                    />
+                                </Grid>
+
+
+
 
                                 {/* Address Fields */}
                                 <Grid size={{ xs: 12 }}>
@@ -767,7 +821,14 @@ const handleSubmit = async () => {
                                         onChange={(e) => handleInputChange("office_notes", e.target.value)}
                                     />
                                 </Grid>
-
+                                {/* Booking Portal ID */}
+                                <Grid size={{ xs: 6 }}>
+                                    <TextField
+                                        label="Booking Portal ID" type="number" fullWidth
+                                        value={formData.booking_portal_id}
+                                        onChange={(e) => handleInputChange("booking_portal_id", e.target.value)}
+                                    />
+                                </Grid>
                                 {/* Checkboxes */}
                                 <Grid size={{ xs: 12 }}>
                                     <Stack direction="row" spacing={3}>
@@ -798,88 +859,88 @@ const handleSubmit = async () => {
                     )}
 
                     {/* Movement Manifest Section */}
-       {/* Dynamic Workflow Section */}
-<Card sx={{ mt: 3, bgcolor: '#f8f9fa', border: '1px solid #e0e0e0' }}>
-    <CardContent>
-        <Typography variant="h6" gutterBottom color="secondary">
-            Workflow: {config.label || "Select a Job Type"}
-        </Typography>
-        {hasNoMovement && (
-  <Alert severity="info">
-    This job type does not require bin movement.
-  </Alert>
-)}
+                    {/* Dynamic Workflow Section */}
+                    <Card sx={{ mt: 3, bgcolor: '#f8f9fa', border: '1px solid #e0e0e0' }}>
+                        <CardContent>
+                            <Typography variant="h6" gutterBottom color="secondary">
+                                Workflow: {config.label || "Select a Job Type"}
+                            </Typography>
+                            {hasNoMovement && (
+                                <Alert severity="info">
+                                    This job type does not require bin movement.
+                                </Alert>
+                            )}
 
 
-      {binAssignments.map((row, index) => (
-  <Paper key={index} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff' }}>
-    <Stack direction="row" spacing={2} alignItems="center">
-      <Typography fontWeight="bold" sx={{ minWidth: 80 }}>Item {index + 1}</Typography>
-{isInspection && (
-  <Alert severity="info">
-    Bin assignment is optional for Inspection / Repair jobs.
-  </Alert>
-)}
-      {config.singleBinOnly ? (
-        <TextField
-          label="Bin #"
-          size="small"
-          error={row.collectValid === false}
-          value={row.collectBinNo}
-          onChange={(e) => handleBinChange(index, 'collectBinNo', e.target.value)}
-          onBlur={() => validateBinNumber(index, 'collect', row.collectBinNo)}
-          helperText="Enter Bin number"
-          slotProps={{
-            input: {
-              endAdornment: row.collectValid === 'checking' ? <CircularProgress size={16} /> : null
-            }
-          }}
-        />
-      ) : (
-        <>
-          {config.showCollect && (
-            <TextField
-              label="Collect Bin #"
-              size="small"
-              error={row.collectValid === false}
-              value={row.collectBinNo}
-              onChange={(e) => handleBinChange(index, 'collectBinNo', e.target.value)}
-              onBlur={() => validateBinNumber(index, 'collect', row.collectBinNo)}
-              helperText={row.collectValid === false ? "Bin not found" : "Bin to be picked up"}
-              slotProps={{
-                input: {
-                  endAdornment: row.collectValid === 'checking' ? <CircularProgress size={16} /> : null
-                }
-              }}
-            />
-          )}
+                            {binAssignments.map((row, index) => (
+                                <Paper key={index} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff' }}>
+                                    <Stack direction="row" spacing={2} alignItems="center">
+                                        <Typography fontWeight="bold" sx={{ minWidth: 80 }}>Item {index + 1}</Typography>
+                                        {isInspection && (
+                                            <Alert severity="info">
+                                                Bin assignment is optional for Inspection / Repair jobs.
+                                            </Alert>
+                                        )}
+                                        {config.singleBinOnly ? (
+                                            <TextField
+                                                label="Bin #"
+                                                size="small"
+                                                error={row.collectValid === false}
+                                                value={row.collectBinNo}
+                                                onChange={(e) => handleBinChange(index, 'collectBinNo', e.target.value)}
+                                                onBlur={() => validateBinNumber(index, 'collect', row.collectBinNo)}
+                                                helperText="Enter Bin number"
+                                                slotProps={{
+                                                    input: {
+                                                        endAdornment: row.collectValid === 'checking' ? <CircularProgress size={16} /> : null
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <>
+                                                {config.showCollect && (
+                                                    <TextField
+                                                        label="Collect Bin #"
+                                                        size="small"
+                                                        error={row.collectValid === false}
+                                                        value={row.collectBinNo}
+                                                        onChange={(e) => handleBinChange(index, 'collectBinNo', e.target.value)}
+                                                        onBlur={() => validateBinNumber(index, 'collect', row.collectBinNo)}
+                                                        helperText={row.collectValid === false ? "Bin not found" : "Bin to be picked up"}
+                                                        slotProps={{
+                                                            input: {
+                                                                endAdornment: row.collectValid === 'checking' ? <CircularProgress size={16} /> : null
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
 
-          {config.showCollect && config.showDeliver && <Typography color="text.secondary">→</Typography>}
+                                                {config.showCollect && config.showDeliver && <Typography color="text.secondary">→</Typography>}
 
-          {config.showDeliver && (
-            <TextField
-              label="Deliver Bin #"
-              size="small"
-              error={row.deliverValid === false}
-              value={row.deliverBinNo}
-              onChange={(e) => handleBinChange(index, 'deliverBinNo', e.target.value)}
-              onBlur={() => validateBinNumber(index, 'deliver', row.deliverBinNo)}
-              helperText={row.deliverValid === false ? "Invalid Bin" : "Assigning to Customer"}
-              slotProps={{
-                input: {
-                  endAdornment: row.deliverValid === 'checking' ? <CircularProgress size={16} /> : null
-                }
-              }}
-            />
-          )}
-        </>
-      )}
-    </Stack>
-  </Paper>
-))}
+                                                {config.showDeliver && (
+                                                    <TextField
+                                                        label="Deliver Bin #"
+                                                        size="small"
+                                                        error={row.deliverValid === false}
+                                                        value={row.deliverBinNo}
+                                                        onChange={(e) => handleBinChange(index, 'deliverBinNo', e.target.value)}
+                                                        onBlur={() => validateBinNumber(index, 'deliver', row.deliverBinNo)}
+                                                        helperText={row.deliverValid === false ? "Invalid Bin" : "Assigning to Customer"}
+                                                        slotProps={{
+                                                            input: {
+                                                                endAdornment: row.deliverValid === 'checking' ? <CircularProgress size={16} /> : null
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
+                                            </>
+                                        )}
+                                    </Stack>
+                                </Paper>
+                            ))}
 
-    </CardContent>
-</Card>
+                        </CardContent>
+                    </Card>
                 </Grid>
 
                 {/* RIGHT COLUMN: Waste Type Visual Selector */}
